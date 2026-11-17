@@ -158,7 +158,7 @@ function Detail({ v, seq }: { v: VerifyResponse; seq: number | null }) {
           {b.ok ? '=' : '≠'}
           <small>{b.ok ? 'match' : 'mismatch'}</small>
         </div>
-        <div className="side" style={{ borderColor: 'rgba(212,165,116,.5)' }}>
+        <div className="side" style={{ borderColor: 'rgba(107, 74, 20, .55)' }}>
           <h4>Anchored on {who}'s ledger copy</h4>
           <div className="kv">
             <span className="k">merkle_root</span>

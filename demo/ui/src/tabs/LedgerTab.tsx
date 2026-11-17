@@ -33,7 +33,7 @@ function Chain({ party, c }: { party: string; c: S['ChainCopy'] }) {
       </div>
       <div className="chain-row" ref={rowRef}>
         <div className="block genesis">
-          <div className="block-title" style={{ color: 'var(--cream-3)' }}>
+          <div className="block-title" style={{ color: 'var(--ink-3)' }}>
             genesis
           </div>
           <div className="row">
