@@ -11,6 +11,8 @@ export function TrailTab(props: {
   setWhere: (w: TrailHolder) => void;
   cover: boolean;
   setCover: (c: boolean) => void;
+  /** Called after a push or a tamper, so a verification result from before it is not shown as current. */
+  onTrailChanged: () => void;
 }) {
   const { s, sub, where, cover } = props;
   const qc = useQueryClient();
@@ -23,12 +25,17 @@ export function TrailTab(props: {
     run(async () => {
       const r = await api.push(sub.id);
       toast(`${sub.id} pushed ${plural(r.count, 'record')} to HQ`, 'info');
+      props.onTrailChanged();
       await qc.invalidateQueries();
     });
   const tamper = (eventId: string, mode: 'edit' | 'delete') =>
     run(async () => {
       const r = await api.tamper({ where, chain: sub.id, eventId, mode, cover });
-      toast(`Tampered: ${r.description}`, 'warn');
+      toast(
+        `Tampered: ${r.description}${where === 'sub' ? `. Push ${sub.id}'s trail to HQ before verifying.` : ''}`,
+        'warn',
+      );
+      props.onTrailChanged();
       await qc.invalidateQueries();
     });
 
@@ -78,7 +85,7 @@ export function TrailTab(props: {
             </label>
             {where === 'sub' && (
               <button className="btn btn-gold" onClick={push}>
-                Push {sub.id}'s trail to HQ
+                Push {sub.id}'s trail to HQ{sub.unpushed ? ' · changes not pushed' : ''}
               </button>
             )}
           </div>

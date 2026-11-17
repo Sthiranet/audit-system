@@ -49,6 +49,9 @@ pub struct SubView {
     pub store_count: usize,
     pub members: Vec<Party>,
     pub hq_copy: Option<HqCopy>,
+    /// The subsidiary's own audit store differs from the copy HQ holds: records were sealed,
+    /// altered or deleted on one side since the last push, so a verification will not see them.
+    pub unpushed: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

@@ -614,6 +614,11 @@ export interface components {
             storeCount: number;
             members: components["schemas"]["String"][];
             hqCopy?: null | components["schemas"]["HqCopy"];
+            /**
+             * @description The subsidiary's own audit store differs from the copy HQ holds: records were sealed,
+             *     altered or deleted on one side since the last push, so a verification will not see them.
+             */
+            unpushed: boolean;
         };
         /** @enum {string} */
         TamperMode: "edit" | "delete";

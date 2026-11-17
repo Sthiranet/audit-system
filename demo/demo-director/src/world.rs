@@ -289,6 +289,7 @@ impl World {
                         .map(|c| c.members.clone())
                         .unwrap_or_default(),
                     hq_copy: self.hq_copy(&s.node.id),
+                    unpushed: self.hq_received.get(&s.node.id).is_none_or(|r| r.rows != s.node.store),
                 })
                 .collect(),
             last_verify: self.last_verify.clone(),

@@ -1,7 +1,10 @@
 :root {
-  /* Oat Milk Latte & Midnight Navy: 60% oat canvas, 30% iced-cappuccino containers, 10% navy accent. */
-  --bg: #E8DDD0;        /* oat milk latte: page canvas and wells inside containers */
-  --stone: #D5C3B0;     /* iced cappuccino: panels, cards, network nodes */
+  /* Oat Milk Latte & Midnight Navy: an iced-cappuccino canvas, oat-milk containers on top of it,
+     and midnight navy for the header and every accent. */
+  --bg: #D5C3B0;        /* iced cappuccino: page canvas and wells inside containers */
+  --stone: #E8DDD0;     /* oat milk latte: panels, cards, network nodes */
+  --oat: #E8DDD0;
+  --cappuccino: #D5C3B0;
   --stone-2: #C5B09A;   /* a shade deeper: table headers, switch track */
   --accent: #14284B;    /* midnight navy: buttons, active tabs, hashes, tree lines */
   --accent-hover: #0C1A33;
@@ -38,13 +41,22 @@ pre { font: 11.5px/1.45 var(--mono); white-space: pre-wrap; word-break: break-al
 /* ── Top bar ── */
 .topbar {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  padding: 10px 20px; border-bottom: 1px solid var(--line); flex: none;
+  padding: 10px 20px; border-bottom: 1px solid var(--accent-hover); flex: none;
+  background: var(--accent); color: var(--oat);
 }
+/* Controls that sit on the navy header. */
+.topbar .switch { color: var(--oat); }
+.topbar .slider { background: rgba(232, 221, 208, .16); border-color: rgba(232, 221, 208, .45); }
+.topbar .slider::after { background: var(--cappuccino); }
+.topbar .switch input:checked + .slider { background: rgba(232, 221, 208, .4); border-color: var(--oat); }
+.topbar .switch input:checked + .slider::after { background: var(--oat); }
+.topbar .btn-ghost, .topbar .btn-purple { background: transparent; color: var(--oat); border-color: rgba(232, 221, 208, .5); }
+.topbar .btn:hover:not(:disabled) { border-color: var(--oat); background: rgba(232, 221, 208, .1); }
 .brand { display: flex; align-items: baseline; gap: 10px; }
-/* The logo artwork is pale cream, drawn for a dark page; render it in ink so it shows on alabaster. */
-.logo { height: 26px; width: auto; align-self: center; filter: brightness(0); opacity: .82; }
-.brand-name { font-size: 20px; font-weight: 300; letter-spacing: .08em; }
-.brand-sub { color: var(--ink-3); font-size: 13px; }
+/* The logo artwork is pale cream, drawn for a dark page: it shows as it is on the navy header. */
+.logo { height: 26px; width: auto; align-self: center; }
+.brand-name { font-size: 20px; font-weight: 400; letter-spacing: .08em; color: var(--oat); }
+.brand-sub { color: var(--cappuccino); font-size: 13px; }
 .top-actions { display: flex; align-items: center; gap: 12px; }
 
 .btn {

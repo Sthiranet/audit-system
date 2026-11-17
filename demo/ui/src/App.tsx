@@ -159,6 +159,11 @@ export function App() {
                 setWhere={setTrailWhere}
                 cover={cover}
                 setCover={setCover}
+                onTrailChanged={() => {
+                  // The trail is no longer the one that was verified: drop the old result.
+                  setVerifyResult(null);
+                  setVerifySeq(null);
+                }}
               />
             )}
             {tab === 'verify' && (

@@ -304,7 +304,11 @@ function Result({ v, seq, setSeq }: { v: VerifyResponse; seq: number | null; set
       <p className="small muted" style={{ marginTop: 6 }}>
         Click a batch to compare it in detail.
       </p>
-      <Detail v={v} seq={seq} />
+      {/* A selected batch that was tampered with is shown together with every other tampered batch,
+          so alterations spread over several batches are all on screen at once. */}
+      {(seq != null && v.changedSeqs.includes(seq) ? v.changedSeqs : [seq]).map((x) => (
+        <Detail key={x ?? 'last'} v={v} seq={x} />
+      ))}
     </>
   );
 }
@@ -399,6 +403,15 @@ export function VerifyTab(props: {
           Trail held by HQ: {copy ? `${plural(copy.count, 'record')}, pushed ${fmtTime(copy.pushedAt)}` : 'none'}
         </span>
       </div>
+      {sub.unpushed && (
+        <div className="banner warn">
+          <div className="icon">!</div>
+          <div className="small">
+            {sub.id}'s own audit store has changed since its trail was last pushed to HQ. Verification reads the copy
+            HQ holds, so those changes are not checked until {sub.id} pushes again (tab 3).
+          </div>
+        </div>
+      )}
       <div id="verify-result">
         {step !== null ? (
           <Running verifier={verifier} sub={sub} at={step} />
