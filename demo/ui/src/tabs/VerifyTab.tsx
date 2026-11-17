@@ -58,36 +58,51 @@ function Explain({ b, v }: { b: BatchCheck; v: VerifyResponse }) {
   for (const x of b.leafIssues) {
     parts.push(
       <>
-        <b>{x.key}</b> ({x.eventId}) no longer hashes to the leaf recorded when it was captured:{' '}
-        <Hash h={x.recorded} cls="dim" /> → <Hash h={x.recomputed} cls="red" />. The difference travels up the tree and
-        produces a different Merkle root.
+        <b>Leaf {x.index + 1} altered</b>: <b>{x.key}</b> ({x.eventId}).{' '}
+        {x.covered ? (
+          <>
+            Its stored leaf hash <Hash h={x.recorded} cls="red" /> was rewritten to agree with the changed record, to
+            cover the tracks. It makes no difference: with the inclusion proof it carries, this leaf no longer leads to
+            the Merkle root co-signed on the ledger.
+          </>
+        ) : (
+          <>
+            It no longer hashes to the leaf recorded when it was captured: <Hash h={x.recorded} cls="dim" /> →{' '}
+            <Hash h={x.recomputed} cls="red" />. The difference travels up the tree and produces a different Merkle
+            root.
+          </>
+        )}
       </>,
     );
   }
-  if (!b.countMatch) {
+  if (b.missingIndexes.length > 0) {
+    parts.push(
+      <>
+        <b>
+          Leaf {b.missingIndexes.map((i) => i + 1).join(', ')} deleted
+        </b>
+        : the anchor committed to <b>{b.anchored.eventCount}</b> records for this batch, but the trail has{' '}
+        <b>{b.recomputed.eventCount}</b>. The dashed {b.missingIndexes.length === 1 ? 'box marks the slot' : 'boxes mark the slots'}{' '}
+        left empty.
+      </>,
+    );
+  } else if (!b.countMatch) {
     parts.push(
       <>
         The trail has <b>{b.recomputed.eventCount}</b> records for this batch, but the anchor committed to{' '}
         <b>{b.anchored.eventCount}</b>.
-        {b.missingIndexes.length > 0 &&
-          ` Leaf position ${b.missingIndexes.map((i) => `L${i + 1}`).join(', ')} is missing: a record was deleted.`}
       </>,
     );
   }
   if (!b.rootMatch && !b.leafIssues.length && b.countMatch) {
-    parts.push(
-      <>
-        Every stored leaf hash looks consistent, because whoever changed the record recomputed it to cover their
-        tracks. It makes no difference: the batch still produces a different Merkle root from the one co-signed on the
-        ledger.
-      </>,
-    );
+    parts.push(<>The records of this batch produce a different Merkle root from the one co-signed on the ledger.</>);
   }
-  if (b.rootMatch && !b.headMatch) {
+  if (b.rootMatch && b.countMatch && !b.headMatch) {
+    const earlier = v.changedSeqs.filter((s) => s < b.seq);
     parts.push(
       <>
         This batch's own records are intact, but its head no longer matches. Each head includes the head before it, so
-        the change in batch #{v.firstBadSeq} breaks every head after it.
+        the change in batch {earlier.map((s) => `#${s}`).join(', ') || `#${v.firstBadSeq}`} breaks every head after it.
       </>,
     );
   }
@@ -121,7 +136,9 @@ function Detail({ v, seq }: { v: VerifyResponse; seq: number | null }) {
             key={`${v.chain}-${b.seq}`}
             tree={b.tree}
             labels={b.leaves.map((l) => l.key)}
-            bad={new Set(b.leafIssues.map((x) => x.index))}
+            slots={b.leaves.map((l) => l.index)}
+            missing={b.missingIndexes}
+            bad={new Set(b.leafIssues.map((x) => x.position))}
             rootBad={!b.rootMatch}
           />
           <div className="kv" style={{ marginTop: 8 }}>
@@ -172,6 +189,16 @@ function Detail({ v, seq }: { v: VerifyResponse; seq: number | null }) {
   );
 }
 
+/** What changed inside one batch, e.g. "2 altered · 1 deleted". */
+function finding(b: BatchCheck): string {
+  const parts = [];
+  if (b.leafIssues.length) parts.push(`${b.leafIssues.length} altered`);
+  if (b.missingIndexes.length) parts.push(`${b.missingIndexes.length} deleted`);
+  if (parts.length) return parts.join(' · ');
+  if (!b.rootMatch || !b.countMatch) return 'contents changed';
+  return b.headMatch ? 'intact' : 'intact · head follows an altered batch';
+}
+
 const Mark = ({ ok }: { ok: boolean }) => <span className={`mark ${ok ? 'ok' : 'bad'}`}>{ok ? '✓' : '✕'}</span>;
 
 function Result({ v, seq, setSeq }: { v: VerifyResponse; seq: number | null; setSeq: (s: number) => void }) {
@@ -193,12 +220,33 @@ function Result({ v, seq, setSeq }: { v: VerifyResponse; seq: number | null; set
         <div className="banner bad">
           <div className="icon">✕</div>
           <div>
-            <div className="title">Tamper detected: batch #{v.firstBadSeq ?? v.failedSeqs[0]} does not match its anchor</div>
-            <div className="small">
-              The trail was changed after it was anchored. {v.failedSeqs.length} of {n} batches fail: #
-              {v.firstBadSeq ?? v.failedSeqs[0]} has a different Merkle root, and since every head includes the one
-              before it, the later heads break too.
+            <div className="title">
+              Tamper detected: {plural(v.alteredCount, 'record')} altered, {v.deletedCount} deleted
             </div>
+            <div className="small">
+              The trail was changed after it was anchored. {v.failedSeqs.length} of {n} batches fail.
+              {v.changedSeqs.length > 0 &&
+                ' Since every head includes the one before it, the heads after the first altered batch break too.'}
+            </div>
+            <ul className="findings small">
+              {v.batches
+                .filter((b) => !b.rootMatch || !b.countMatch)
+                .map((b) => (
+                  <li key={b.seq} onClick={() => setSeq(b.seq)}>
+                    <b>Batch #{b.seq}</b>
+                    {b.leafIssues.map((x) => (
+                      <span key={x.eventId}>
+                        Leaf {x.index + 1} altered ({x.key}
+                        {x.covered ? ', stored hash rewritten' : ''})
+                      </span>
+                    ))}
+                    {b.missingIndexes.map((i) => (
+                      <span key={`m${i}`}>Leaf {i + 1} deleted</span>
+                    ))}
+                    {!b.leafIssues.length && !b.missingIndexes.length && <span>Merkle root differs</span>}
+                  </li>
+                ))}
+            </ul>
           </div>
         </div>
       )}
@@ -208,6 +256,7 @@ function Result({ v, seq, setSeq }: { v: VerifyResponse; seq: number | null; set
             <tr>
               <th>Batch</th>
               <th>Records (trail / anchor)</th>
+              <th>Finding</th>
               <th>Recomputed root</th>
               <th>Anchored root</th>
               <th></th>
@@ -228,6 +277,7 @@ function Result({ v, seq, setSeq }: { v: VerifyResponse; seq: number | null; set
                 <td className="mono">
                   {b.recomputed.eventCount} / {b.anchored.eventCount} {!b.countMatch && <Mark ok={false} />}
                 </td>
+                <td className="small">{finding(b)}</td>
                 <td>
                   <Hash h={b.recomputed.root} cls={b.rootMatch ? '' : 'red'} />
                 </td>

@@ -56,14 +56,18 @@ async fn the_story() {
     assert!(b3.root_match && !b3.head_match, "later heads cascade");
     assert!(!w.state().last_verify["S1"].ok);
 
-    // 6. Tamper with the leaf hash recomputed: no leaf flag, but the root still mismatches.
+    // 6. Tamper with the leaf hash recomputed: the stored hash agrees, but the record still does not
+    //    prove into the anchored root, so the leaf is pinpointed all the same.
     w.reset();
     let t2 = w.trail("sub", "S1").unwrap().rows.into_iter().find(|r| r.batch_seq == 3).unwrap();
     tamper(&mut w, "sub", "S1", &t2.id, TamperMode::Edit, true);
     w.push("S1").unwrap();
     let v = w.verify("HQ", "S1").unwrap().report;
     assert_eq!(v.first_bad_seq, Some(3));
-    assert!(v.batches.iter().find(|x| x.seq == 3).unwrap().leaf_issues.is_empty());
+    let b3 = v.batches.iter().find(|x| x.seq == 3).unwrap();
+    assert_eq!(b3.leaf_issues.len(), 1);
+    assert_eq!((b3.leaf_issues[0].event_id.as_str(), b3.leaf_issues[0].index), (t2.id.as_str(), t2.index));
+    assert!(b3.leaf_issues[0].covered);
 
     // 7. Deleted record: event count and root mismatch, missing position reported.
     w.reset();
@@ -100,6 +104,46 @@ async fn the_story() {
     let shared = World::shared();
     assert!(set_auto(&shared, true).auto);
     assert!(!set_auto(&shared, false).auto);
+}
+
+/// Several manipulations at once, in one batch and across batches: every one is reported, each at
+/// the leaf slot it had when the batch was sealed.
+#[test]
+fn every_manipulation_is_pinpointed() {
+    let mut w = World::new();
+    w.capture("S1", Some(8)).unwrap();
+    let seq = w.seal("S1").unwrap().seq;
+    let rows = w.trail("sub", "S1").unwrap().rows;
+    let slot = |i: usize| rows.iter().find(|r| r.batch_seq == seq && r.index == i).unwrap().id.clone();
+    let earlier = rows.iter().find(|r| r.batch_seq == 2).unwrap().clone();
+
+    // Delete L2, alter L1, alter L4 and L7 (L7 with its stored hash rewritten), alter one record of batch #2.
+    tamper(&mut w, "sub", "S1", &slot(1), TamperMode::Delete, false);
+    tamper(&mut w, "sub", "S1", &slot(0), TamperMode::Edit, false);
+    tamper(&mut w, "sub", "S1", &slot(3), TamperMode::Edit, false);
+    tamper(&mut w, "sub", "S1", &slot(6), TamperMode::Edit, true);
+    tamper(&mut w, "sub", "S1", &earlier.id, TamperMode::Edit, false);
+    // Altering the same record again must not put the original value back.
+    tamper(&mut w, "sub", "S1", &slot(3), TamperMode::Edit, false);
+    w.push("S1").unwrap();
+
+    let v = w.verify("HQ", "S1").unwrap().report;
+    assert_eq!(v.changed_seqs, [2, seq]);
+    assert_eq!((v.altered_count, v.deleted_count), (4, 1));
+    let b = v.batches.iter().find(|x| x.seq == seq).unwrap();
+    assert_eq!(b.missing_indexes, [1]);
+    let found: Vec<(usize, usize, &str, bool)> =
+        b.leaf_issues.iter().map(|x| (x.index, x.position, x.event_id.as_str(), x.covered)).collect();
+    let (s0, s3, s6) = (slot(0), slot(3), slot(6));
+    assert_eq!(found, [(0, 0, s0.as_str(), false), (3, 2, s3.as_str(), false), (6, 5, s6.as_str(), true)]);
+    // The tree is drawn over the 7 records left; each leaf keeps its original slot number.
+    assert_eq!(b.leaves.iter().map(|l| l.index).collect::<Vec<_>>(), [0, 2, 3, 4, 5, 6, 7]);
+    let b2 = v.batches.iter().find(|x| x.seq == 2).unwrap();
+    assert_eq!(b2.leaf_issues.len(), 1);
+    assert_eq!((b2.leaf_issues[0].event_id.as_str(), b2.leaf_issues[0].index), (earlier.id.as_str(), earlier.index));
+    // Batches in between kept their contents; only their heads moved.
+    let b3 = v.batches.iter().find(|x| x.seq == 3).unwrap();
+    assert!(b3.root_match && !b3.head_match && b3.leaf_issues.is_empty() && b3.missing_indexes.is_empty());
 }
 
 #[test]

@@ -561,11 +561,21 @@ impl World {
                 r.batches.len()
             )
         } else {
-            let first =
-                r.first_bad_seq.or_else(|| r.failed_seqs.first().copied()).map_or("?".into(), |s| s.to_string());
+            let changed: Vec<String> = r.changed_seqs.iter().map(|s| format!("#{s}")).collect();
+            let what = if changed.is_empty() {
+                "the chained heads do not match the anchors".to_string()
+            } else {
+                format!(
+                    "{} altered and {} deleted in batch{} {}",
+                    plural(r.altered_count, "record"),
+                    r.deleted_count,
+                    if changed.len() == 1 { "" } else { "es" },
+                    changed.join(", ")
+                )
+            };
             let n = r.failed_seqs.len();
             format!(
-                "{who} verified {chain}'s trail: batch #{first} does not match its anchor. {n} batch{} fail. The trail was altered after capture.",
+                "{who} verified {chain}'s trail: {what}. {n} batch{} fail. The trail was altered after capture.",
                 if n == 1 { "" } else { "es" }
             )
         };

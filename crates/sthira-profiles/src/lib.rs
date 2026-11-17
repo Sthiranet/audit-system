@@ -152,8 +152,10 @@ pub fn describe(ev: &Event) -> Description {
 }
 
 /// Presenter action: what a corrupt employee (or a bug) does to a stored audit record.
-/// A journal entry's amount changes tenfold; a vendor's bank account is swapped.
+/// A journal entry's amount changes roughly tenfold; a vendor's bank account is swapped.
+/// Altering the same record again always gives a new value, never the original back.
 pub fn tamper(ev: &mut Event) -> String {
+    const SWAP: &str = "ACCT 9999-0042-";
     let is_je = ev.source.table == "journal_entries";
     let Some(Value::Object(a)) = ev.after.as_mut().or(ev.before.as_mut()) else {
         return "nothing to alter".to_string();
@@ -162,14 +164,16 @@ pub fn tamper(ev: &mut Event) -> String {
     if is_je {
         let old = a.get("amount").and_then(Value::as_str).unwrap_or("0").to_string();
         let v: f64 = old.parse().unwrap_or(0.0);
-        let new = money(if v >= 10000.0 { v / 10.0 } else { v * 10.0 });
+        // Going down adds one unit, so a second alteration cannot land back on the first amount.
+        let new = money(if v >= 10000.0 { v / 10.0 + 1.0 } else { v * 10.0 });
         let cur = a.get("currency").and_then(Value::as_str).unwrap_or("").to_string();
         a.insert("amount".into(), Value::String(new.clone()));
         return format!("{id}: amount {} → {} {cur}", fmt_money(&old), fmt_money(&new));
     }
     let old = a.get("bank_account").and_then(Value::as_str).unwrap_or("").to_string();
-    let new = if old == "ACCT 9999-0042-7731" { "ACCT 9999-0042-7732" } else { "ACCT 9999-0042-7731" };
-    a.insert("bank_account".into(), Value::String(new.into()));
+    let next = old.strip_prefix(SWAP).and_then(|n| n.parse::<u32>().ok()).map_or(7731, |n| (n + 1) % 10000);
+    let new = format!("{SWAP}{next:04}");
+    a.insert("bank_account".into(), Value::String(new.clone()));
     format!("{id}: bank account {old} → {new}")
 }
 
@@ -225,5 +229,18 @@ mod tests {
         let msg = tamper(&mut ev);
         assert!(msg.contains("amount"), "{msg}");
         assert_ne!(before, sthira_core::leaf_hash(&salt, &ev));
+    }
+
+    #[test]
+    fn repeated_tampering_never_restores_the_original() {
+        let mut s = src("postgresql");
+        for i in 0..40 {
+            let original = normalize(&s.next(1_762_000_000_000 + i * 300), "S1");
+            let mut ev = original.clone();
+            for round in 0..6 {
+                tamper(&mut ev);
+                assert_ne!(ev, original, "event {i} round {round}");
+            }
+        }
     }
 }

@@ -6,19 +6,26 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 use sthira_batcher::StoreRow;
-use sthira_core::{BatchMeta, MerkleTree, head_hash, leaf_hash, merkle_tree};
+use sthira_core::{BatchMeta, MerkleTree, head_hash, leaf_hash, merkle_tree, verify_inclusion};
 use sthira_ledger::Anchor;
 use sthira_profiles::{Description, describe};
 
-/// A leaf that no longer hashes to the value recorded when the event was captured.
+/// A record that is no longer the one anchored at capture: its recomputed leaf, with the inclusion
+/// proof it carries, does not lead to the Merkle root on the ledger.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct LeafIssue {
+    /// The leaf's slot in the batch as sealed (what the trail calls `L{index + 1}`).
     pub index: usize,
+    /// The leaf's position in the recomputed tree; lower than `index` once earlier records are deleted.
+    pub position: usize,
     pub event_id: String,
     pub key: String,
+    /// The leaf hash stored next to the record.
     pub recorded: String,
     pub recomputed: String,
+    /// The stored leaf hash was rewritten to agree with the altered record.
+    pub covered: bool,
 }
 
 /// The values committed on the ledger.
@@ -66,7 +73,9 @@ pub struct BatchCheck {
     pub count_match: bool,
     pub anchored: AnchoredValues,
     pub recomputed: RecomputedValues,
+    /// Every altered record in this batch, however many there are.
     pub leaf_issues: Vec<LeafIssue>,
+    /// Slots the anchor committed to that have no record in the trail: deleted records.
     pub missing_indexes: Vec<usize>,
     pub tree: MerkleTree,
     pub leaves: Vec<LeafView>,
@@ -81,8 +90,15 @@ pub struct VerifyReport {
     pub failed_seqs: Vec<u64>,
     /// Batch numbers present in the trail with no anchor on the ledger.
     pub unanchored: Vec<u64>,
-    /// The first batch whose own contents changed (root or count mismatch).
+    /// Every batch whose own contents changed (root or count mismatch), as opposed to batches that
+    /// fail only because an earlier head changed.
+    pub changed_seqs: Vec<u64>,
+    /// The first of `changed_seqs`.
     pub first_bad_seq: Option<u64>,
+    /// Records altered across the whole trail.
+    pub altered_count: usize,
+    /// Records deleted across the whole trail.
+    pub deleted_count: usize,
     pub event_count: usize,
 }
 
@@ -112,21 +128,27 @@ pub fn verify_trail(chain_id: &str, genesis_head: &str, anchors: &[Anchor], rows
         };
         let head = head_hash(&prev_head, &tree.hash, &meta);
 
-        let leaf_issues = evs
+        // Each record is checked on its own against the ANCHORED root, through the proof it carries.
+        // So an altered record is found at its original slot whatever else happened to the batch:
+        // other edits, deletions that shift positions, or a stored leaf hash rewritten to cover it.
+        let size = a.event_count as usize;
+        let leaf_issues: Vec<LeafIssue> = evs
             .iter()
             .zip(&leaves)
             .enumerate()
-            .filter(|(_, (r, l))| r.leaf_hash != **l)
+            .filter(|(_, (r, l))| !verify_inclusion(l, r.index, size, &r.proof, &a.merkle_root))
             .map(|(i, (r, l))| LeafIssue {
-                index: i,
+                index: r.index,
+                position: i,
                 event_id: r.id.clone(),
                 key: r.event.key.id.clone(),
                 recorded: r.leaf_hash.clone(),
                 recomputed: l.clone(),
+                covered: r.leaf_hash == **l,
             })
             .collect();
         let present: BTreeSet<usize> = evs.iter().map(|r| r.index).collect();
-        let missing_indexes = (0..a.event_count as usize).filter(|i| !present.contains(i)).collect();
+        let missing_indexes: Vec<usize> = (0..size).filter(|i| !present.contains(i)).collect();
 
         let root_match = tree.hash == a.merkle_root;
         let head_match = head == a.head;
@@ -174,13 +196,16 @@ pub fn verify_trail(chain_id: &str, genesis_head: &str, anchors: &[Anchor], rows
     let anchored: BTreeSet<u64> = anchors.iter().map(|a| a.seq).collect();
     let unanchored: Vec<u64> = by_seq.keys().copied().filter(|s| !anchored.contains(s)).collect();
     let failed_seqs: Vec<u64> = batches.iter().filter(|b| !b.ok).map(|b| b.seq).collect();
-    let first_bad_seq = batches.iter().find(|b| !b.root_match || !b.count_match).map(|b| b.seq);
+    let changed_seqs: Vec<u64> = batches.iter().filter(|b| !b.root_match || !b.count_match).map(|b| b.seq).collect();
     VerifyReport {
+        first_bad_seq: changed_seqs.first().copied(),
+        changed_seqs,
+        altered_count: batches.iter().map(|b| b.leaf_issues.len()).sum(),
+        deleted_count: batches.iter().map(|b| b.missing_indexes.len()).sum(),
         ok: failed_seqs.is_empty() && unanchored.is_empty(),
         batches,
         failed_seqs,
         unanchored,
-        first_bad_seq,
         event_count: rows.len(),
     }
 }

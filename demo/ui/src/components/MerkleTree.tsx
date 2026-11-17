@@ -1,11 +1,21 @@
 // Draws a batch's Merkle tree from the leaves up to the root. With `animate`, nodes appear level by level.
+//
+// A tree node's `leaf` is its position among the leaves that were hashed. When records were deleted
+// that is no longer the slot the leaf had when the batch was sealed, so the verifier passes `slots`
+// (original slot per position) and `missing` (slots with no record). Leaves are then captioned and
+// placed by original slot, and each deleted slot is drawn as an empty box in its place.
 import type { MerkleTreeNode } from '../api/client';
 
 type Props = {
   tree?: MerkleTreeNode | null;
   labels?: string[];
+  /** Positions (tree `leaf` values) of the leaves to flag. */
   bad?: Set<number>;
   rootBad?: boolean;
+  /** Original batch slot of the leaf at each position. Defaults to the position itself. */
+  slots?: number[];
+  /** Original batch slots that have no leaf: deleted records. */
+  missing?: number[];
   animate?: boolean;
 };
 
@@ -14,12 +24,39 @@ const NW = 74, NH = 36, COL_W = 80, ROW_H = 66, PAD_X = 4, PAD_TOP = 4, KEY_H = 
 const isLeaf = (n: MerkleTreeNode) => n.leaf != null;
 const kids = (n: MerkleTreeNode) => [n.left, n.right].filter((c): c is MerkleTreeNode => !!c);
 
-export function MerkleTree({ tree, labels = [], bad = new Set(), rootBad = false, animate = false }: Props) {
+function Ghost({ x, y, slot }: { x: number; y: number; slot: number }) {
+  return (
+    <g className="t-node ghost">
+      <title>{`Leaf ${slot + 1} was anchored, but its record is not in the trail`}</title>
+      <rect x={x - NW / 2} y={y} width={NW} height={NH} rx={6} />
+      <text className="t-cap" x={x} y={y + 13} textAnchor="middle">
+        LEAF {slot + 1}
+      </text>
+      <text className="t-hash" x={x} y={y + 28} textAnchor="middle">
+        deleted
+      </text>
+    </g>
+  );
+}
+
+export function MerkleTree({
+  tree,
+  labels = [],
+  bad = new Set(),
+  rootBad = false,
+  animate = false,
+  slots,
+  missing = [],
+}: Props) {
   if (!tree || tree.empty) {
-    const w = 200;
+    const w = Math.max(200, PAD_X * 2 + NW + (missing.length - 1) * COL_W);
+    const h = missing.length ? ROW_H + NH + 6 : 56;
     return (
       <div className="tree-wrap">
-        <svg width={w} height={56} viewBox={`0 0 ${w} 56`}>
+        <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', maxWidth: w, height: 'auto' }}>
+          {missing.map((slot, i) => (
+            <Ghost key={slot} slot={slot} x={PAD_X + NW / 2 + i * COL_W} y={ROW_H} />
+          ))}
           <g className={`t-node root ${rootBad ? 'bad' : ''}`}>
             <title>{tree?.hash ?? ''}</title>
             <rect x={w / 2 - 60} y={6} width={120} height={NH} rx={6} />
@@ -38,6 +75,15 @@ export function MerkleTree({ tree, labels = [], bad = new Set(), rootBad = false
   const leaves: MerkleTreeNode[] = [];
   const walk = (n: MerkleTreeNode) => (isLeaf(n) ? leaves.push(n) : kids(n).forEach(walk));
   walk(tree);
+  // Leaf row columns: the present leaves and the deleted slots, merged in original slot order.
+  const slotOf = (n: MerkleTreeNode) => slots?.[n.leaf!] ?? n.leaf!;
+  const row: { slot: number; node?: MerkleTreeNode }[] = [
+    ...leaves.map((node) => ({ slot: slotOf(node), node })),
+    ...missing.map((slot) => ({ slot })),
+  ].sort((a, b) => a.slot - b.slot);
+  const col = new Map<MerkleTreeNode, number>();
+  row.forEach((r, i) => r.node && col.set(r.node, i));
+  const colX = (i: number) => PAD_X + NW / 2 + i * COL_W;
   const heights = new Map<MerkleTreeNode, number>();
   const height = (n: MerkleTreeNode): number => {
     const cached = heights.get(n);
@@ -51,7 +97,7 @@ export function MerkleTree({ tree, labels = [], bad = new Set(), rootBad = false
   const place = (n: MerkleTreeNode) => {
     const y = PAD_TOP + (top - height(n)) * ROW_H;
     if (isLeaf(n)) {
-      pos.set(n, { x: PAD_X + NW / 2 + leaves.indexOf(n) * COL_W, y });
+      pos.set(n, { x: colX(col.get(n)!), y });
       return;
     }
     const [l, r] = kids(n);
@@ -91,7 +137,7 @@ export function MerkleTree({ tree, labels = [], bad = new Set(), rootBad = false
         draw(c, `${id}${i}`);
       });
     }
-    const cap = root ? 'ROOT' : leaf ? `LEAF ${n.leaf! + 1}` : 'NODE';
+    const cap = root ? 'ROOT' : leaf ? `LEAF ${slotOf(n) + 1}` : 'NODE';
     const label = leaf ? labels[n.leaf!] : undefined;
     nodes.push(
       <g
@@ -116,7 +162,11 @@ export function MerkleTree({ tree, labels = [], bad = new Set(), rootBad = false
     );
   };
   draw(tree, 'n');
-  const w = PAD_X * 2 + NW + (leaves.length - 1) * COL_W;
+  const leafY = PAD_TOP + top * ROW_H;
+  row.forEach((r, i) => {
+    if (!r.node) nodes.push(<Ghost key={`gap-${r.slot}`} slot={r.slot} x={colX(i)} y={leafY} />);
+  });
+  const w = PAD_X * 2 + NW + (row.length - 1) * COL_W;
   const h = PAD_TOP + top * ROW_H + NH + KEY_H;
   return (
     <div className="tree-wrap">

@@ -5,7 +5,9 @@
 //! An empty batch is sealed and anchored too, so a quiet period is visible on the ledger.
 
 use serde::{Deserialize, Serialize};
-use sthira_core::{BatchMeta, Event, MerkleTree, Op, genesis_head, head_hash, leaf_hash, merkle_tree, new_salt};
+use sthira_core::{
+    BatchMeta, Event, MerkleTree, Op, genesis_head, head_hash, inclusion_proof, leaf_hash, merkle_tree, new_salt,
+};
 use sthira_ledger::{Anchor, AnchorInput, AuditLedger, LedgerError};
 use sthira_profiles::{DebeziumEvent, Description, FinanceSource, SourceConfig, describe, iso_micros, normalize};
 
@@ -17,7 +19,8 @@ pub struct PendingRecord {
     pub event: Event,
 }
 
-/// One row of the off-ledger audit store: the event, its salt and the leaf hash recorded at capture.
+/// One row of the off-ledger audit store: the event, its salt, the leaf hash recorded at capture and
+/// the leaf's inclusion proof, which ties this one record to the anchored Merkle root on its own.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct StoreRow {
@@ -29,6 +32,8 @@ pub struct StoreRow {
     pub raw: DebeziumEvent,
     pub salt: String,
     pub leaf_hash: String,
+    /// RFC 6962 audit path of this leaf in its batch, noted when the batch was sealed.
+    pub proof: Vec<String>,
 }
 
 /// What was hashed for one leaf, for the "Capture & batch" view.
@@ -172,9 +177,11 @@ impl SubsidiaryNode {
             },
         )?;
 
+        let proofs: Vec<Vec<String>> =
+            (0..leaves.len()).map(|i| inclusion_proof(&leaves, i).expect("index in range")).collect();
         let pending = std::mem::take(&mut self.pending);
         let mut items = Vec::with_capacity(pending.len());
-        for (i, ((rec, salt), leaf)) in pending.into_iter().zip(salts).zip(leaves).enumerate() {
+        for (i, (((rec, salt), leaf), proof)) in pending.into_iter().zip(salts).zip(leaves).zip(proofs).enumerate() {
             items.push(BatchItem {
                 id: rec.id.clone(),
                 key: rec.event.key.id.clone(),
@@ -194,6 +201,7 @@ impl SubsidiaryNode {
                 raw: rec.raw,
                 salt,
                 leaf_hash: leaf,
+                proof,
             });
         }
         self.batches.push(Batch {

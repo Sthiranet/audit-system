@@ -344,7 +344,9 @@ export interface components {
             countMatch: boolean;
             anchored: components["schemas"]["AnchoredValues"];
             recomputed: components["schemas"]["RecomputedValues"];
+            /** @description Every altered record in this batch, however many there are. */
             leafIssues: components["schemas"]["LeafIssue"][];
+            /** @description Slots the anchor committed to that have no record in the trail: deleted records. */
             missingIndexes: number[];
             tree: components["schemas"]["MerkleTree"];
             leaves: components["schemas"]["LeafView"][];
@@ -487,13 +489,22 @@ export interface components {
             /** Format: int64 */
             firstBadSeq?: number | null;
         };
-        /** @description A leaf that no longer hashes to the value recorded when the event was captured. */
+        /**
+         * @description A record that is no longer the one anchored at capture: its recomputed leaf, with the inclusion
+         *     proof it carries, does not lead to the Merkle root on the ledger.
+         */
         LeafIssue: {
+            /** @description The leaf's slot in the batch as sealed (what the trail calls `L{index + 1}`). */
             index: number;
+            /** @description The leaf's position in the recomputed tree; lower than `index` once earlier records are deleted. */
+            position: number;
             eventId: string;
             key: string;
+            /** @description The leaf hash stored next to the record. */
             recorded: string;
             recomputed: string;
+            /** @description The stored leaf hash was rewritten to agree with the altered record. */
+            covered: boolean;
         };
         LeafView: components["schemas"]["Description"] & {
             id: string;
@@ -658,10 +669,19 @@ export interface components {
             /** @description Batch numbers present in the trail with no anchor on the ledger. */
             unanchored: number[];
             /**
+             * @description Every batch whose own contents changed (root or count mismatch), as opposed to batches that
+             *     fail only because an earlier head changed.
+             */
+            changedSeqs: number[];
+            /**
              * Format: int64
-             * @description The first batch whose own contents changed (root or count mismatch).
+             * @description The first of `changed_seqs`.
              */
             firstBadSeq?: number | null;
+            /** @description Records altered across the whole trail. */
+            alteredCount: number;
+            /** @description Records deleted across the whole trail. */
+            deletedCount: number;
             eventCount: number;
         };
         VerifyRequest: {
