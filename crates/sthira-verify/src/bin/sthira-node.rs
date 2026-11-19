@@ -11,7 +11,7 @@
 //! - the presenter's insider (`tamper`, `untamper`), and a party trying to rewrite history on the
 //!   ledger itself (`rewrite`).
 //!
-//! Run `sthira-node --help` or see `prototype_tutorial.md`.
+//! Run `sthira-node --help` or see the README.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::IsTerminal;

@@ -1,4 +1,4 @@
-//! Kernel · hashing spec v1 and v2 (see the build plan and `PROTOTYPE_CONTEXT.md`).
+//! Kernel · hashing spec v1 and v2 (see the build plan and the README).
 //!
 //! ```text
 //! event   = JCS({ v, chain, source{connector, db, schema, table, pos, tx}, key, op,      (v1)
