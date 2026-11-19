@@ -1,2 +1,4 @@
 /target/
-/sthira-data/
+/sthira-*/
+/changes.jsonl
+/proof.json

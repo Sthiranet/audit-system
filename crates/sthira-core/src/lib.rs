@@ -1,30 +1,37 @@
-//! Kernel · hashing spec v2 (see the README).
+//! Kernel · hashing spec v3 and the ports every other crate talks through.
 //!
 //! ```text
-//! event   = JCS({ v: 2, chain, source{connector, system, table, pos, channel, origin},
-//!                 key, op, before, after, actor{id, name, org, kind}, committed_at, captured_at })
+//! event   = JCS({ v: 3, chain,
+//!                 source{connector, server, db, table, gtid, tx, file, pos, row},
+//!                 key{<pk column>: "<value>"…}, op, before, after, committed_at, captured_at })
 //! salt    = 32 random bytes per event, kept in the audit store, never on the ledger
 //! leaf    = H(0x00 || salt || event)
 //! node    = H(0x01 || left || right)
-//! root    = RFC 6962 Merkle tree hash over the batch's leaves in event-id order
+//! root    = RFC 6962 Merkle tree hash over the batch's leaves in capture order
 //!           (an empty batch has root H(""))
-//! meta    = JCS({ chain, seq, from_pos, to_pos, from_time, to_time, event_count })
+//! meta    = JCS({ chain, seq, from_tx, to_tx, from_time, to_time, event_count, tx_count })
 //! head    = H(0x02 || prev_head || root || meta)
 //! genesis = H(0x03 || "sthiranet/v1/genesis/" || chain)
+//! anchor  = { seq, prev_head, head, root, leaves[], event_count, tx_count, from_tx, to_tx, from_time, to_time }
 //! ```
 //!
 //! `H` is SHA-256 and JCS is RFC 8785 canonical JSON. Every hash is carried as lowercase hex.
 //! The genesis tag string is a fixed domain separator of the hash construction; it is not the event
 //! spec version.
-//! This crate is pure: no I/O and no async, so it can also be compiled to WebAssembly.
+//!
+//! This crate is pure: no I/O and no runtime. The port traits in [`ports`] only describe futures.
 
-mod event_v2;
+mod event;
+mod ledger;
 mod merkle;
+pub mod ports;
 
-pub use event_v2::{ActorV2, EventV2, Op, RecordKey, SPEC_VERSION_V2, SourceV2};
+pub use event::{Event, Op, RecordKey, SPEC_VERSION, Source};
+pub use ledger::{Anchor, AnchorInput, ArchiveAttempt, ChainSpec, ChainView, Party};
 pub use merkle::{
     EMPTY_ROOT, MerkleTree, all_inclusion_proofs, inclusion_proof, merkle_root, merkle_tree, verify_inclusion,
 };
+pub use ports::{AuditLedger, CapturedTx, ChangeSource, LedgerError, SourceError, TrailRecord};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -82,15 +89,16 @@ pub fn node_hash(left: &str, right: &str) -> String {
 }
 
 /// Batch metadata that is folded into the chain head. Field names are part of the spec.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BatchMeta {
     pub chain: String,
     pub seq: u64,
-    pub from_pos: String,
-    pub to_pos: String,
+    pub from_tx: u64,
+    pub to_tx: u64,
     pub from_time: String,
     pub to_time: String,
     pub event_count: u64,
+    pub tx_count: u64,
 }
 
 /// `head = H(0x02 || prev_head || root || JCS(meta))`.
@@ -157,11 +165,12 @@ mod tests {
         let meta = BatchMeta {
             chain: "S1".into(),
             seq: 1,
-            from_pos: "0/1".into(),
-            to_pos: "0/2".into(),
+            from_tx: 0,
+            to_tx: 0,
             from_time: "2026-11-09T00:00:00.000000Z".into(),
             to_time: "2026-11-09T00:00:10.000000Z".into(),
             event_count: 0,
+            tx_count: 0,
         };
         let g = genesis_head("S1");
         assert_ne!(g, genesis_head("S2"));

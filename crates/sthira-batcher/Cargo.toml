@@ -1,6 +1,6 @@
 [package]
 name = "sthira-batcher"
-description = "Node layer: capture, batch sealing and anchoring, and the off-ledger audit store (the API-fed node, spec v2, with on-disk persistence)"
+description = "Node layer: batch sealing (salted leaves, Merkle root, chained head), anchoring through the AuditLedger port, and the node's off-ledger audit store on disk"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,8 +9,5 @@ publish.workspace = true
 
 [dependencies]
 sthira-core.workspace = true
-sthira-ledger.workspace = true
-sthira-profiles.workspace = true
 serde.workspace = true
-utoipa.workspace = true
 serde_json.workspace = true

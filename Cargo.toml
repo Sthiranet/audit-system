@@ -2,10 +2,11 @@
 resolver = "3"
 members = [
   "crates/sthira-core",
+  "crates/sthira-connector",
   "crates/sthira-ledger",
-  "crates/sthira-profiles",
   "crates/sthira-batcher",
   "crates/sthira-verify",
+  "crates/sthira-node",
 ]
 
 [workspace.package]
@@ -17,8 +18,8 @@ publish = false
 
 [workspace.dependencies]
 sthira-core = { path = "crates/sthira-core" }
+sthira-connector = { path = "crates/sthira-connector" }
 sthira-ledger = { path = "crates/sthira-ledger" }
-sthira-profiles = { path = "crates/sthira-profiles" }
 sthira-batcher = { path = "crates/sthira-batcher" }
 sthira-verify = { path = "crates/sthira-verify" }
 
@@ -30,7 +31,7 @@ hex = "0.4"
 rand = "0.9"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 thiserror = "2"
-utoipa = { version = "5", features = ["preserve_order"] }
 proptest = "1"
-ureq = { version = "3", default-features = false, features = ["rustls", "json"] }
 clap = { version = "4", features = ["derive", "env"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "signal", "fs", "io-util"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }

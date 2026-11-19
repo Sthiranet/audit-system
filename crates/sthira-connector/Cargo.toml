@@ -1,0 +1,19 @@
+[package]
+name = "sthira-connector"
+description = "Connector layer: database change-log capture into spec v3 events. For now the MySQL binlog skeleton, an offline dummy-data generator and a replay source."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+sthira-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+rand.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }

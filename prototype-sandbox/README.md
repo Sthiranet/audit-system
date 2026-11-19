@@ -1,7 +1,7 @@
 # prototype-sandbox: Sthiranet anchoring on Canton (sandbox)
 
-This directory holds the Daml package that the prototype node (`sthira-node run --ledger canton`)
-anchors its batches on, and the script that starts a local **Canton sandbox** with it. The
+This directory holds the Daml package that the prototype node (`sthira-node run`) anchors its
+batches on, and the script that starts a local **Canton sandbox** with it. The
 sandbox is one participant node and one synchronizer in a single process, with in-memory storage.
 It is not the TestNet and not LocalNet.
 
@@ -33,13 +33,20 @@ AuditChain    ──Append (submitter only)──► AuditChain (next) + AuditAn
   have signed so far.
 - **AuditChain**: the head of the chain (`lastSeq`, `lastHead`), signed by every member. `Append` is
   controlled by the submitter only. It checks `seq == lastSeq + 1` and `prevHead == lastHead`, so the chain
-  can't fork or skip a batch. It also checks `fromTime <= toTime` and `eventCount >= 0`. Append is
-  *consuming*, so the old head can never be appended to again.
-- **AuditAnchor**: one per batch, with seq, prev head, head, Merkle root, event count, log positions and
-  time window. It is signed by every member, so archiving (rewriting) one needs all of them.
+  can't fork or skip a batch. It also checks that the time window does not run backwards, that there is exactly one
+  leaf per event (`length leaves == eventCount`), that `0 <= txCount <= eventCount` (and at least one
+  transaction when there are events), and that `0 <= fromTx <= toTx`. Append is *consuming*, so the old
+  head can never be appended to again.
+- **AuditAnchor**: one per batch, with seq, prev head, head, Merkle root, **every leaf hash of the batch**,
+  event and transaction counts, the GTID window (`fromTx`..`toTx`) and the time window. It is signed by
+  every member, so archiving (rewriting) one needs all of them.
 
-Hashes, times and positions are `Text`: they are exactly the strings the node hashed, so a verifier
-recomputes from them unchanged. Fixed-format UTC timestamps sort correctly as text.
+Anchoring the leaves next to the root lets a verifier check each record against its own leaf on the
+ledger: an altered record is pinpointed even if the off-ledger store was forged around it. The root
+(computed off-ledger) is what the chained head is built over.
+
+Hashes and times are `Text`: they are exactly the strings the node hashed, so a verifier recomputes from
+them unchanged. Fixed-format UTC timestamps sort correctly as text.
 
 The model has no contract keys (Canton 3.x / Daml-LF 2) and no record content: only fingerprints.
 
@@ -58,6 +65,7 @@ dpm test      # or: make daml-test (from the repo root)
 | `test_no_unilateral_archive` | neither party alone can archive an anchor; both together can |
 | `test_outsider_sees_nothing` | a third party sees no anchors |
 | `test_proposal_rules` | no finalising before everyone signed; non-members can't sign |
+| `test_leaves_must_match_counts` | a leaf list that disagrees with the event count, or a bad transaction count or window, is refused |
 
 ## Run
 
@@ -68,7 +76,8 @@ dpm test      # or: make daml-test (from the repo root)
 Then, from the repo root in another terminal:
 
 ```bash
-./target/release/sthira-node --data ./sthira-canton run --ledger canton
+./target/release/sthira-node gen        # once: the offline change log
+./target/release/sthira-node run
 ```
 
 On first start the node allocates the parties `DREAMTALK` and `AUDITOR` (they become

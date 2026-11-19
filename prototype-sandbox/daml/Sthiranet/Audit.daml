@@ -1,7 +1,8 @@
 -- | Sthiranet · audit-trail anchoring.
 --
--- A company's node seals its audit trail into batches and anchors one fingerprint per batch here.
--- Only hashes, counts, log positions and time windows reach the ledger; records never do.
+-- A company's node seals the database change log it captures into batches and anchors each batch
+-- here: the leaf hash of every record, the batch's Merkle root and the chained head. Only hashes,
+-- counts, log positions (GTID transaction numbers) and time windows reach the ledger; records never do.
 --
 --   ChainProposal  ──Sign (each member)──►  ChainProposal  ──Finalize──►  AuditChain
 --   AuditChain     ──Append (submitter)──►  AuditChain (next) + AuditAnchor
@@ -11,9 +12,12 @@
 -- * Append checks continuity: seq must be last + 1 and prevHead must equal the chain head, so the
 --   chain can neither fork nor skip. Append is consuming, so only one successor can ever exist.
 -- * Every AuditAnchor is signed by every member, so no single party can archive (rewrite) it.
+-- * The leaves are anchored next to the root: a verifier checks each record against its own leaf on
+--   the ledger, so a record is pinpointed even if the off-ledger store was forged around it. The root
+--   (computed off-ledger) is what the head chains over.
 --
--- Times, hashes and positions are Text: they are exactly the strings the node hashed (RFC 3339 UTC
--- with microseconds, lowercase hex, decimal positions), so a verifier recomputes from them as is.
+-- Times and hashes are Text: they are exactly the strings the node hashed (RFC 3339 UTC with
+-- microseconds, lowercase hex), so a verifier recomputes from them as is.
 -- Fixed-format UTC timestamps order correctly as text.
 module Sthiranet.Audit where
 
@@ -78,9 +82,11 @@ template AuditChain
         prevHead   : Text
         head       : Text
         merkleRoot : Text
+        leaves     : [Text]
         eventCount : Int
-        fromPos    : Text
-        toPos      : Text
+        txCount    : Int
+        fromTx     : Int
+        toTx       : Int
         fromTime   : Text
         toTime     : Text
       controller submitter
@@ -88,10 +94,13 @@ template AuditChain
         assertMsg "sequence gap: seq must be lastSeq + 1" (seq == lastSeq + 1)
         assertMsg "chain fork: prevHead does not match the chain head" (prevHead == lastHead)
         assertMsg "time window runs backwards" (fromTime <= toTime)
-        assertMsg "event count is negative" (eventCount >= 0)
+        assertMsg "leaf count does not match the event count" (length leaves == eventCount)
+        assertMsg "transaction count out of range" (txCount >= 0 && txCount <= eventCount)
+        assertMsg "a non-empty batch needs at least one transaction" (eventCount == 0 || txCount > 0)
+        assertMsg "transaction window runs backwards" (0 <= fromTx && fromTx <= toTx)
         anchor <- create AuditAnchor with
-          chainId; submitter; members; seq; prevHead; head; merkleRoot
-          eventCount; fromPos; toPos; fromTime; toTime
+          chainId; submitter; members; seq; prevHead; head; merkleRoot; leaves
+          eventCount; txCount; fromTx; toTx; fromTime; toTime
         next <- create this with lastSeq = seq; lastHead = head
         pure (next, anchor)
 
@@ -105,9 +114,11 @@ template AuditAnchor
     prevHead   : Text
     head       : Text
     merkleRoot : Text
+    leaves     : [Text] -- ^ every record's leaf hash, in batch order
     eventCount : Int
-    fromPos    : Text
-    toPos      : Text
+    txCount    : Int    -- ^ source transactions in the batch
+    fromTx     : Int    -- ^ first and last GTID transaction number covered
+    toTx       : Int
     fromTime   : Text
     toTime     : Text
   where

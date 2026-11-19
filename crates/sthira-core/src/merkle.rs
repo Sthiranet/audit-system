@@ -13,16 +13,14 @@ pub const EMPTY_ROOT: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca4
 
 /// A Merkle tree node. A leaf has `leaf` (its index in the batch); an inner node has `left` and
 /// `right`; the tree of an empty batch is a single node with `empty: true`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MerkleTree {
     pub hash: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub leaf: Option<usize>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schema(no_recursion)]
     pub left: Option<Box<MerkleTree>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schema(no_recursion)]
     pub right: Option<Box<MerkleTree>>,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub empty: bool,

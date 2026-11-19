@@ -1,9 +1,9 @@
-//! Spec v2 test vectors in `test-vectors/hashing-v2.json`, produced by an independent Python
-//! implementation (`test-vectors/generate_v2.py`). The Rust kernel must reproduce every value.
+//! Spec v3 test vectors in `test-vectors/hashing-v3.json`, produced by an independent Python
+//! implementation (`test-vectors/generate_v3.py`). The Rust kernel must reproduce every value.
 
 use serde::Deserialize;
 use sthira_core::{
-    BatchMeta, EventV2, canonical, genesis_head, head_hash, inclusion_proof, leaf_hash, merkle_root, verify_inclusion,
+    BatchMeta, Event, canonical, genesis_head, head_hash, inclusion_proof, leaf_hash, merkle_root, verify_inclusion,
 };
 
 #[derive(Deserialize)]
@@ -17,7 +17,7 @@ struct Vectors {
 #[derive(Deserialize)]
 struct EventVector {
     salt: String,
-    event: EventV2,
+    event: Event,
     canonical: String,
     leaf: String,
 }
@@ -51,7 +51,7 @@ struct HeadVector {
 }
 
 fn load() -> Vectors {
-    let path = format!("{}/../../test-vectors/hashing-v2.json", env!("CARGO_MANIFEST_DIR"));
+    let path = format!("{}/../../test-vectors/hashing-v3.json", env!("CARGO_MANIFEST_DIR"));
     serde_json::from_str(&std::fs::read_to_string(path).expect("vector file")).expect("vector json")
 }
 

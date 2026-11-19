@@ -30,10 +30,14 @@ setup = do
 
 append : World -> ContractId AuditChain -> Int -> Text -> Text -> Script (ContractId AuditChain, ContractId AuditAnchor)
 append w c seq prev head = submit w.company do
-  exerciseCmd c Append with
-    seq; prevHead = prev; head; merkleRoot = "root-" <> head; eventCount = 3
-    fromPos = "1"; toPos = "3"
-    fromTime = "2026-11-18T00:00:00.000000Z"; toTime = "2026-11-18T00:00:10.000000Z"
+  exerciseCmd c (appendArgs seq prev head)
+
+-- | A well-formed batch of 3 records from 2 transactions.
+appendArgs : Int -> Text -> Text -> Append
+appendArgs seq prev head = Append with
+  seq; prevHead = prev; head; merkleRoot = "root-" <> head
+  leaves = ["l1", "l2", "l3"]; eventCount = 3; txCount = 2; fromTx = 1; toTx = 2
+  fromTime = "2026-11-18T00:00:00.000000Z"; toTime = "2026-11-18T00:00:10.000000Z"
 
 -- 1. The chain is signed by both members and appends chain correctly.
 test_append_chains : Script ()
@@ -43,6 +47,7 @@ test_append_chains = script do
   (c2, _) <- append w c1 2 "h1" "h2"
   Some anchor <- queryContractId w.auditor a1
   assert (anchor.seq == 1 && anchor.members == [w.company, w.auditor])
+  assert (anchor.leaves == ["l1", "l2", "l3"] && anchor.txCount == 2)
   Some chain <- queryContractId w.company c2
   assert (chain.lastSeq == 2 && chain.lastHead == "h2")
 
@@ -52,13 +57,9 @@ test_fork_and_gap_rejected = script do
   w <- setup
   (c1, _) <- append w w.chain 1 genesis "h1"
   submitMustFail w.company do
-    exerciseCmd c1 Append with
-      seq = 2; prevHead = "not-h1"; head = "x"; merkleRoot = "r"; eventCount = 0
-      fromPos = "3"; toPos = "3"; fromTime = "2026-11-18T00:00:10.000000Z"; toTime = "2026-11-18T00:00:20.000000Z"
+    exerciseCmd c1 (appendArgs 2 "not-h1" "x")
   submitMustFail w.company do
-    exerciseCmd c1 Append with
-      seq = 3; prevHead = "h1"; head = "x"; merkleRoot = "r"; eventCount = 0
-      fromPos = "3"; toPos = "3"; fromTime = "2026-11-18T00:00:10.000000Z"; toTime = "2026-11-18T00:00:20.000000Z"
+    exerciseCmd c1 (appendArgs 3 "h1" "x")
 
 -- 3. The consumed chain contract cannot be appended to again (no second successor).
 test_no_second_successor : Script ()
@@ -66,18 +67,14 @@ test_no_second_successor = script do
   w <- setup
   _ <- append w w.chain 1 genesis "h1"
   submitMustFail w.company do
-    exerciseCmd w.chain Append with
-      seq = 1; prevHead = genesis; head = "other"; merkleRoot = "r"; eventCount = 0
-      fromPos = "0"; toPos = "0"; fromTime = "2026-11-18T00:00:00.000000Z"; toTime = "2026-11-18T00:00:10.000000Z"
+    exerciseCmd w.chain (appendArgs 1 genesis "other")
 
 -- 4. Only the submitter appends: the auditor cannot.
 test_only_submitter_appends : Script ()
 test_only_submitter_appends = script do
   w <- setup
   submitMustFail w.auditor do
-    exerciseCmd w.chain Append with
-      seq = 1; prevHead = genesis; head = "h1"; merkleRoot = "r"; eventCount = 0
-      fromPos = "0"; toPos = "0"; fromTime = "2026-11-18T00:00:00.000000Z"; toTime = "2026-11-18T00:00:10.000000Z"
+    exerciseCmd w.chain (appendArgs 1 genesis "h1")
 
 -- 5. Neither party can archive an anchor alone; together they could.
 test_no_unilateral_archive : Script ()
@@ -112,4 +109,18 @@ test_proposal_rules = script do
   submitMustFail outsider do exerciseCmd p Sign with signer = outsider
   p <- submit auditor do exerciseCmd p Sign with signer = auditor
   _ <- submit auditor do exerciseCmd p Finalize with actor = auditor
+  pure ()
+
+-- 8. The anchored leaves must match the counts, and the transaction window must make sense.
+test_leaves_must_match_counts : Script ()
+test_leaves_must_match_counts = script do
+  w <- setup
+  let ok = appendArgs 1 genesis "h1"
+  submitMustFail w.company do exerciseCmd w.chain ok with leaves = ["l1", "l2"]
+  submitMustFail w.company do exerciseCmd w.chain ok with txCount = 4
+  submitMustFail w.company do exerciseCmd w.chain ok with txCount = 0
+  submitMustFail w.company do exerciseCmd w.chain ok with fromTx = 5
+  -- An empty batch: no leaves, no transactions.
+  _ <- submit w.company do
+    exerciseCmd w.chain ok with leaves = []; eventCount = 0; txCount = 0; fromTx = 0; toTx = 0
   pure ()

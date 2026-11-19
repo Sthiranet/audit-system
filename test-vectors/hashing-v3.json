@@ -1,0 +1,270 @@
+{
+  "spec": "sthiranet hashing v3",
+  "events": [
+    {
+      "salt": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "event": {
+        "v": 3,
+        "chain": "DT",
+        "source": {
+          "connector": "mysql-binlog",
+          "server": "3e11fa47-71ca-11e1-9e33-c80aa9429562",
+          "db": "erp",
+          "table": "orders",
+          "gtid": "3e11fa47-71ca-11e1-9e33-c80aa9429562:101",
+          "tx": "101",
+          "file": "binlog.000042",
+          "pos": "4410",
+          "row": 0
+        },
+        "key": {
+          "id": "5001"
+        },
+        "op": "insert",
+        "before": null,
+        "after": {
+          "id": 5001,
+          "customer_id": 17,
+          "status": "NEW",
+          "total": "1250.00",
+          "currency": "INR",
+          "created_at": "2026-11-20 10:00:01"
+        },
+        "committed_at": "2026-11-20T10:00:01.000000Z",
+        "captured_at": "2026-11-20T10:00:05.000000Z"
+      },
+      "canonical": "{\"after\":{\"created_at\":\"2026-11-20 10:00:01\",\"currency\":\"INR\",\"customer_id\":17,\"id\":5001,\"status\":\"NEW\",\"total\":\"1250.00\"},\"before\":null,\"captured_at\":\"2026-11-20T10:00:05.000000Z\",\"chain\":\"DT\",\"committed_at\":\"2026-11-20T10:00:01.000000Z\",\"key\":{\"id\":\"5001\"},\"op\":\"insert\",\"source\":{\"connector\":\"mysql-binlog\",\"db\":\"erp\",\"file\":\"binlog.000042\",\"gtid\":\"3e11fa47-71ca-11e1-9e33-c80aa9429562:101\",\"pos\":\"4410\",\"row\":0,\"server\":\"3e11fa47-71ca-11e1-9e33-c80aa9429562\",\"table\":\"orders\",\"tx\":\"101\"},\"v\":3}",
+      "leaf": "9160c100a258800a6ca55c15a66c9e9e3865745fb5e79aab4b4ce98180dcc1d6"
+    },
+    {
+      "salt": "a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2",
+      "event": {
+        "v": 3,
+        "chain": "DT",
+        "source": {
+          "connector": "mysql-binlog",
+          "server": "3e11fa47-71ca-11e1-9e33-c80aa9429562",
+          "db": "erp",
+          "table": "order_lines",
+          "gtid": "3e11fa47-71ca-11e1-9e33-c80aa9429562:101",
+          "tx": "101",
+          "file": "binlog.000042",
+          "pos": "4410",
+          "row": 1
+        },
+        "key": {
+          "line_no": "1",
+          "order_id": "5001"
+        },
+        "op": "insert",
+        "before": null,
+        "after": {
+          "order_id": 5001,
+          "line_no": 1,
+          "sku": "SKU-0042",
+          "qty": 5,
+          "unit_price": "250.00"
+        },
+        "committed_at": "2026-11-20T10:00:01.000000Z",
+        "captured_at": "2026-11-20T10:00:05.000000Z"
+      },
+      "canonical": "{\"after\":{\"line_no\":1,\"order_id\":5001,\"qty\":5,\"sku\":\"SKU-0042\",\"unit_price\":\"250.00\"},\"before\":null,\"captured_at\":\"2026-11-20T10:00:05.000000Z\",\"chain\":\"DT\",\"committed_at\":\"2026-11-20T10:00:01.000000Z\",\"key\":{\"line_no\":\"1\",\"order_id\":\"5001\"},\"op\":\"insert\",\"source\":{\"connector\":\"mysql-binlog\",\"db\":\"erp\",\"file\":\"binlog.000042\",\"gtid\":\"3e11fa47-71ca-11e1-9e33-c80aa9429562:101\",\"pos\":\"4410\",\"row\":1,\"server\":\"3e11fa47-71ca-11e1-9e33-c80aa9429562\",\"table\":\"order_lines\",\"tx\":\"101\"},\"v\":3}",
+      "leaf": "c2d6f664f8d2731842822fb42795e7f3790b82d3775264249aedf884e6fb4684"
+    },
+    {
+      "salt": "a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3",
+      "event": {
+        "v": 3,
+        "chain": "DT",
+        "source": {
+          "connector": "mysql-binlog",
+          "server": "3e11fa47-71ca-11e1-9e33-c80aa9429562",
+          "db": "erp",
+          "table": "customers",
+          "gtid": "3e11fa47-71ca-11e1-9e33-c80aa9429562:102",
+          "tx": "102",
+          "file": "binlog.000042",
+          "pos": "4987",
+          "row": 0
+        },
+        "key": {
+          "id": "17"
+        },
+        "op": "update",
+        "before": {
+          "id": 17,
+          "name": "Asha Rao",
+          "city": "Pune",
+          "credit_limit": "50000.00",
+          "blocked": false
+        },
+        "after": {
+          "id": 17,
+          "name": "Asha Rao",
+          "city": "Pune — Baner",
+          "credit_limit": "75000.00",
+          "blocked": false
+        },
+        "committed_at": "2026-11-20T10:00:02.000000Z",
+        "captured_at": "2026-11-20T10:00:05.000000Z"
+      },
+      "canonical": "{\"after\":{\"blocked\":false,\"city\":\"Pune — Baner\",\"credit_limit\":\"75000.00\",\"id\":17,\"name\":\"Asha Rao\"},\"before\":{\"blocked\":false,\"city\":\"Pune\",\"credit_limit\":\"50000.00\",\"id\":17,\"name\":\"Asha Rao\"},\"captured_at\":\"2026-11-20T10:00:05.000000Z\",\"chain\":\"DT\",\"committed_at\":\"2026-11-20T10:00:02.000000Z\",\"key\":{\"id\":\"17\"},\"op\":\"update\",\"source\":{\"connector\":\"mysql-binlog\",\"db\":\"erp\",\"file\":\"binlog.000042\",\"gtid\":\"3e11fa47-71ca-11e1-9e33-c80aa9429562:102\",\"pos\":\"4987\",\"row\":0,\"server\":\"3e11fa47-71ca-11e1-9e33-c80aa9429562\",\"table\":\"customers\",\"tx\":\"102\"},\"v\":3}",
+      "leaf": "e2ac96dced8de5dd3be823f2cd0a5eab134ec49028642ea54d933551a2e6740d"
+    },
+    {
+      "salt": "a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4",
+      "event": {
+        "v": 3,
+        "chain": "DT",
+        "source": {
+          "connector": "mysql-binlog",
+          "server": "3e11fa47-71ca-11e1-9e33-c80aa9429562",
+          "db": "erp",
+          "table": "payments",
+          "gtid": "3e11fa47-71ca-11e1-9e33-c80aa9429562:103",
+          "tx": "103",
+          "file": "binlog.000042",
+          "pos": "5532",
+          "row": 0
+        },
+        "key": {
+          "id": "9001"
+        },
+        "op": "insert",
+        "before": null,
+        "after": {
+          "id": 9001,
+          "invoice_id": 7001,
+          "amount": "1250.00",
+          "method": "NEFT",
+          "reference": null
+        },
+        "committed_at": "2026-11-20T10:00:03.000000Z",
+        "captured_at": "2026-11-20T10:00:05.000000Z"
+      },
+      "canonical": "{\"after\":{\"amount\":\"1250.00\",\"id\":9001,\"invoice_id\":7001,\"method\":\"NEFT\",\"reference\":null},\"before\":null,\"captured_at\":\"2026-11-20T10:00:05.000000Z\",\"chain\":\"DT\",\"committed_at\":\"2026-11-20T10:00:03.000000Z\",\"key\":{\"id\":\"9001\"},\"op\":\"insert\",\"source\":{\"connector\":\"mysql-binlog\",\"db\":\"erp\",\"file\":\"binlog.000042\",\"gtid\":\"3e11fa47-71ca-11e1-9e33-c80aa9429562:103\",\"pos\":\"5532\",\"row\":0,\"server\":\"3e11fa47-71ca-11e1-9e33-c80aa9429562\",\"table\":\"payments\",\"tx\":\"103\"},\"v\":3}",
+      "leaf": "8d21a202e78a85b1bb9c21fe750d7b94ceea8975069de2940820aa56f6a2cbde"
+    },
+    {
+      "salt": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "event": {
+        "v": 3,
+        "chain": "DT",
+        "source": {
+          "connector": "mysql-binlog",
+          "server": "3e11fa47-71ca-11e1-9e33-c80aa9429562",
+          "db": "erp",
+          "table": "invoices",
+          "gtid": "3e11fa47-71ca-11e1-9e33-c80aa9429562:103",
+          "tx": "103",
+          "file": "binlog.000042",
+          "pos": "5532",
+          "row": 1
+        },
+        "key": {
+          "id": "6999"
+        },
+        "op": "delete",
+        "before": {
+          "id": 6999,
+          "order_id": 4999,
+          "amount": "80.00",
+          "status": "DRAFT"
+        },
+        "after": null,
+        "committed_at": "2026-11-20T10:00:03.000000Z",
+        "captured_at": "2026-11-20T10:00:05.000000Z"
+      },
+      "canonical": "{\"after\":null,\"before\":{\"amount\":\"80.00\",\"id\":6999,\"order_id\":4999,\"status\":\"DRAFT\"},\"captured_at\":\"2026-11-20T10:00:05.000000Z\",\"chain\":\"DT\",\"committed_at\":\"2026-11-20T10:00:03.000000Z\",\"key\":{\"id\":\"6999\"},\"op\":\"delete\",\"source\":{\"connector\":\"mysql-binlog\",\"db\":\"erp\",\"file\":\"binlog.000042\",\"gtid\":\"3e11fa47-71ca-11e1-9e33-c80aa9429562:103\",\"pos\":\"5532\",\"row\":1,\"server\":\"3e11fa47-71ca-11e1-9e33-c80aa9429562\",\"table\":\"invoices\",\"tx\":\"103\"},\"v\":3}",
+      "leaf": "21c21034d448803b29dd7c5b229ffcf4966ef03da3fc58e0cb2b337a5acc6eab"
+    }
+  ],
+  "batch": {
+    "leaves": [
+      "9160c100a258800a6ca55c15a66c9e9e3865745fb5e79aab4b4ce98180dcc1d6",
+      "c2d6f664f8d2731842822fb42795e7f3790b82d3775264249aedf884e6fb4684",
+      "e2ac96dced8de5dd3be823f2cd0a5eab134ec49028642ea54d933551a2e6740d",
+      "8d21a202e78a85b1bb9c21fe750d7b94ceea8975069de2940820aa56f6a2cbde",
+      "21c21034d448803b29dd7c5b229ffcf4966ef03da3fc58e0cb2b337a5acc6eab"
+    ],
+    "root": "56e1df3e8b5812e8211d9d10fb09e15a61d6b5804b44c3b9a2f05e97550a8843",
+    "proofs": [
+      {
+        "index": 0,
+        "path": [
+          "c2d6f664f8d2731842822fb42795e7f3790b82d3775264249aedf884e6fb4684",
+          "80f0162f80e01db26c242737bfe82c5efe4ebd894bb2350cba3d8f7e741d9564",
+          "21c21034d448803b29dd7c5b229ffcf4966ef03da3fc58e0cb2b337a5acc6eab"
+        ]
+      },
+      {
+        "index": 1,
+        "path": [
+          "9160c100a258800a6ca55c15a66c9e9e3865745fb5e79aab4b4ce98180dcc1d6",
+          "80f0162f80e01db26c242737bfe82c5efe4ebd894bb2350cba3d8f7e741d9564",
+          "21c21034d448803b29dd7c5b229ffcf4966ef03da3fc58e0cb2b337a5acc6eab"
+        ]
+      },
+      {
+        "index": 2,
+        "path": [
+          "8d21a202e78a85b1bb9c21fe750d7b94ceea8975069de2940820aa56f6a2cbde",
+          "35ef7d2c97c4fa1724330c787cd3e3e1738276e1b868f44b072676a3f4de07c0",
+          "21c21034d448803b29dd7c5b229ffcf4966ef03da3fc58e0cb2b337a5acc6eab"
+        ]
+      },
+      {
+        "index": 3,
+        "path": [
+          "e2ac96dced8de5dd3be823f2cd0a5eab134ec49028642ea54d933551a2e6740d",
+          "35ef7d2c97c4fa1724330c787cd3e3e1738276e1b868f44b072676a3f4de07c0",
+          "21c21034d448803b29dd7c5b229ffcf4966ef03da3fc58e0cb2b337a5acc6eab"
+        ]
+      },
+      {
+        "index": 4,
+        "path": [
+          "1e20339b7d8d88b63da6ba17728a1f62b0e73f4f30680850fd6b08da731be43f"
+        ]
+      }
+    ]
+  },
+  "genesis": {
+    "chain": "DT",
+    "head": "81951333a409fb59c7fe4657a5929a83cf4c4b92d14e24503c10282211af170e"
+  },
+  "heads": [
+    {
+      "prev_head": "81951333a409fb59c7fe4657a5929a83cf4c4b92d14e24503c10282211af170e",
+      "root": "56e1df3e8b5812e8211d9d10fb09e15a61d6b5804b44c3b9a2f05e97550a8843",
+      "meta": {
+        "chain": "DT",
+        "seq": 1,
+        "from_tx": 101,
+        "to_tx": 103,
+        "from_time": "2026-11-20T09:59:55.000000Z",
+        "to_time": "2026-11-20T10:00:05.000000Z",
+        "event_count": 5,
+        "tx_count": 3
+      },
+      "canonical_meta": "{\"chain\":\"DT\",\"event_count\":5,\"from_time\":\"2026-11-20T09:59:55.000000Z\",\"from_tx\":101,\"seq\":1,\"to_time\":\"2026-11-20T10:00:05.000000Z\",\"to_tx\":103,\"tx_count\":3}",
+      "head": "65221b5a1945a235c77de4eb906febfe890486bb447a85835981247691d5f92c"
+    },
+    {
+      "prev_head": "65221b5a1945a235c77de4eb906febfe890486bb447a85835981247691d5f92c",
+      "root": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "meta": {
+        "chain": "DT",
+        "seq": 2,
+        "from_tx": 103,
+        "to_tx": 103,
+        "from_time": "2026-11-20T10:00:05.000000Z",
+        "to_time": "2026-11-20T10:00:15.000000Z",
+        "event_count": 0,
+        "tx_count": 0
+      },
+      "canonical_meta": "{\"chain\":\"DT\",\"event_count\":0,\"from_time\":\"2026-11-20T10:00:05.000000Z\",\"from_tx\":103,\"seq\":2,\"to_time\":\"2026-11-20T10:00:15.000000Z\",\"to_tx\":103,\"tx_count\":0}",
+      "head": "5e5c511f6c26912699a843d9ed40a0a0b9334f040954a683686ee7fdd1c8ed15"
+    }
+  ]
+}

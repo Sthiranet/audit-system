@@ -1,25 +1,22 @@
-//! Durable state for a [`FeedNode`], as plain files in one data directory.
+//! Durable state for a [`Node`], as plain files in one data directory.
 //!
 //! ```text
 //! <data>/
-//!   ledger/                 stand-in for the ledger (what every member's participant node holds)
-//!     chain.json            chain id, members, submitter, genesis head, chain start, source API
-//!     anchors.jsonl         one AuditAnchor per line, in seq order
+//!   chain.json              chain id, members, submitter, genesis head, chain start, source, ledger
 //!   node/                   the company's node: its off-ledger audit store
-//!     trail.jsonl           one FeedRow per captured event (event, salt, leaf hash, proof, raw row)
+//!     trail.jsonl           one StoredRow per captured event (event, salt, leaf hash)
 //!     batches.jsonl         the node's own batch table
-//!     cursor.json           position in the source's log, declared gaps
+//!     receipts.jsonl        the anchors as the ledger returned them (verifiers read the ledger itself)
+//!     cursor.json           the last GTID number captured and sealed
 //!     tamper-log.jsonl      originals of rows altered by the presenter's `tamper` command
 //!     .lock                 serialises writers (the running node and `tamper`)
 //! ```
 //!
-//! With `ledger.kind = canton` in `chain.json`, the anchors live on a Canton participant and
-//! `anchors.jsonl` is only the node's local receipt; verifiers read the ledger itself.
+//! Commit order per batch is trail → batches → receipt → cursor. On restart, anything sealed locally
+//! but not on the ledger is dropped, and capture resumes after the cursor, so transactions are
+//! re-read rather than lost.
 //!
-//! Commit order per batch is trail → batches → anchor → cursor. On restart, anything sealed locally
-//! but not anchored is dropped, and the cursor resumes from its last saved position, so rows are
-//! re-read rather than lost; the node's dedupe makes the re-read harmless. With Canton, `ledger/` is
-//! replaced by the participant nodes; the node directory stays as it is.
+//! This module knows nothing about the ledger: the caller says how far the ledger got.
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufRead, BufReader, Write};
@@ -27,13 +24,11 @@ use std::path::{Path, PathBuf};
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use sthira_ledger::canton::{CantonConfig, CantonLedger};
-use sthira_ledger::{Anchor, AnchorInput, AuditLedger, SimLedger};
-use sthira_profiles::audit_api::AuditCursor;
+use sthira_core::Anchor;
 
-use crate::feed_node::{FeedBatch, FeedNode, FeedRow, Sealed};
+use crate::node::{BatchRecord, Node, Sealed, StoredRow};
 
-/// The chain's identity, fixed at `init`.
+/// The chain's identity, fixed when the data directory is created.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChainInfo {
     pub chain_id: String,
@@ -43,22 +38,18 @@ pub struct ChainInfo {
     pub members: Vec<String>,
     pub genesis_head: String,
     pub chain_start: String,
-    pub api_url: String,
-    pub system: String,
-    /// Where the anchors live. Older data directories have no field and use the SimLedger.
-    #[serde(default)]
-    pub ledger: LedgerConfig,
+    /// The change log the node captures from (the generated binlog file).
+    pub source: String,
+    /// JSON Ledger API of the participant the chain is anchored on.
+    pub ledger_url: String,
+    pub ledger_user: String,
 }
 
-/// The ledger a chain is anchored on, fixed when the chain is created.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "lowercase")]
-pub enum LedgerConfig {
-    /// In-memory stand-in, replayed from `ledger/anchors.jsonl` on every start.
-    #[default]
-    Sim,
-    /// A Canton participant through the JSON Ledger API v2 (the sandbox in `prototype-sandbox/`).
-    Canton(CantonConfig),
+/// Where capture stands.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Cursor {
+    /// The last GTID number captured and sealed.
+    pub last_tx: u64,
 }
 
 /// The original of a row the presenter altered or deleted, so `untamper` can put it back.
@@ -67,7 +58,7 @@ pub struct TamperEntry {
     pub row_id: String,
     pub action: String,
     pub description: String,
-    pub original: FeedRow,
+    pub original: StoredRow,
 }
 
 /// Paths inside a data directory.
@@ -79,21 +70,28 @@ pub struct DataDir {
 /// A held write lock on the node directory; released when dropped.
 pub struct WriteLock(#[allow(dead_code)] File);
 
+/// A node rebuilt from disk.
+pub struct Restored {
+    pub info: ChainInfo,
+    pub node: Node,
+    pub cursor: Cursor,
+}
+
 impl DataDir {
     pub fn new(root: impl Into<PathBuf>) -> Self {
         Self { root: root.into() }
     }
     pub fn chain(&self) -> PathBuf {
-        self.root.join("ledger/chain.json")
-    }
-    pub fn anchors(&self) -> PathBuf {
-        self.root.join("ledger/anchors.jsonl")
+        self.root.join("chain.json")
     }
     pub fn trail(&self) -> PathBuf {
         self.root.join("node/trail.jsonl")
     }
     pub fn batches(&self) -> PathBuf {
         self.root.join("node/batches.jsonl")
+    }
+    pub fn receipts(&self) -> PathBuf {
+        self.root.join("node/receipts.jsonl")
     }
     pub fn cursor(&self) -> PathBuf {
         self.root.join("node/cursor.json")
@@ -122,10 +120,9 @@ impl DataDir {
                 format!("{} already holds a chain; use another --data directory", self.root.display()),
             ));
         }
-        fs::create_dir_all(self.root.join("ledger"))?;
         fs::create_dir_all(self.root.join("node"))?;
         write_json(&self.chain(), info)?;
-        for p in [self.anchors(), self.trail(), self.batches()] {
+        for p in [self.trail(), self.batches(), self.receipts()] {
             File::create(p)?;
         }
         Ok(())
@@ -135,189 +132,69 @@ impl DataDir {
         read_json(&self.chain())
     }
 
-    pub fn load_anchors(&self) -> io::Result<Vec<Anchor>> {
-        Ok(read_jsonl(&self.anchors())?.0)
+    pub fn load_receipts(&self) -> io::Result<Vec<Anchor>> {
+        Ok(read_jsonl(&self.receipts())?.0)
     }
 
     /// The trail at `path` (default: the node's own), with the number of unreadable lines skipped.
-    pub fn load_trail_from(&self, path: Option<&Path>) -> io::Result<(Vec<FeedRow>, usize)> {
+    pub fn load_trail_from(&self, path: Option<&Path>) -> io::Result<(Vec<StoredRow>, usize)> {
         read_jsonl(path.unwrap_or(&self.trail()))
     }
 
-    pub fn load_batches(&self) -> io::Result<Vec<FeedBatch>> {
+    pub fn load_batches(&self) -> io::Result<Vec<BatchRecord>> {
         Ok(read_jsonl(&self.batches())?.0)
     }
 
-    pub fn load_cursor(&self) -> io::Result<Option<AuditCursor>> {
+    pub fn load_cursor(&self) -> io::Result<Cursor> {
         if !self.cursor().exists() {
-            return Ok(None);
+            return Ok(Cursor::default());
         }
-        read_json(&self.cursor()).map(Some)
+        read_json(&self.cursor())
     }
 
     pub fn load_tamper_log(&self) -> io::Result<Vec<TamperEntry>> {
-        if !self.tamper_log().exists() {
-            return Ok(Vec::new());
-        }
         Ok(read_jsonl(&self.tamper_log())?.0)
     }
 
     /// Persists one sealed batch, in commit order, then the cursor.
-    pub fn commit(&self, sealed: &Sealed, cursor: &AuditCursor) -> io::Result<()> {
+    pub fn commit(&self, sealed: &Sealed) -> io::Result<()> {
         let _lock = self.lock()?;
         append_jsonl(&self.trail(), &sealed.rows)?;
         append_jsonl(&self.batches(), std::slice::from_ref(&sealed.batch))?;
-        append_jsonl(&self.anchors(), std::slice::from_ref(&sealed.anchor))?;
-        write_json(&self.cursor(), cursor)
+        append_jsonl(&self.receipts(), std::slice::from_ref(&sealed.anchor))?;
+        write_json(&self.cursor(), &Cursor { last_tx: sealed.batch.to_tx })
     }
 
-    /// Opens the chain's ledger without touching the node's files: the SimLedger is replayed from
-    /// `ledger/anchors.jsonl`; Canton is connected and every member's view is loaded. A Canton
-    /// chain that does not exist yet is created when `create` is set and nothing was anchored before.
-    pub fn open_ledger(&self, create: bool) -> Result<(ChainInfo, Box<dyn AuditLedger>), String> {
-        let info = self.info().map_err(|e| format!("reading {}: {e}", self.chain().display()))?;
-        let local = self.load_anchors().map_err(|e| e.to_string())?;
-        match &info.ledger {
-            LedgerConfig::Sim => {
-                let mut ledger = SimLedger::new();
-                for m in &info.members {
-                    ledger.add_party(m);
-                }
-                ledger
-                    .create_chain(&info.chain_id, &info.submitter, &info.members, &info.genesis_head)
-                    .map_err(|e| e.0)?;
-                for a in &local {
-                    ledger.append(&info.chain_id, &info.submitter, input_of(a)).map_err(|e| {
-                        format!("replaying anchor #{} from {}: {}", a.seq, self.anchors().display(), e.0)
-                    })?;
-                }
-                Ok((info, Box::new(ledger)))
-            }
-            LedgerConfig::Canton(cfg) => {
-                let mut ledger = CantonLedger::connect(cfg.clone())
-                    .map_err(|e| format!("{}. Is the sandbox running? (prototype-sandbox/sandbox.sh)", e.0))?;
-                for m in &info.members {
-                    ledger.add_party(m);
-                }
-                ledger.refresh().map_err(|e| e.0)?;
-                let on_ledger = ledger.copy(&info.submitter, &info.chain_id).cloned();
-                match on_ledger {
-                    None if local.is_empty() && create => {
-                        ledger
-                            .create_chain(&info.chain_id, &info.submitter, &info.members, &info.genesis_head)
-                            .map_err(|e| format!("creating chain {} on Canton: {}", info.chain_id, e.0))?;
-                    }
-                    None => {
-                        return Err(format!(
-                            "Canton at {} has no chain {}. The sandbox keeps its state in memory, so a restarted \
-                             sandbox has forgotten it; start a new chain with another --data directory",
-                            cfg.url, info.chain_id
-                        ));
-                    }
-                    Some(c) => {
-                        if local.is_empty() && !c.anchors.is_empty() {
-                            return Err(format!(
-                                "chain {} already exists on this ledger with {} anchors from another data directory; \
-                                 pick another chain id with `run --chain …` in a new --data directory",
-                                info.chain_id,
-                                c.anchors.len()
-                            ));
-                        }
-                        if c.genesis_head != info.genesis_head {
-                            return Err(format!("Canton's chain {} has a different genesis head", info.chain_id));
-                        }
-                        // The ledger must hold the same history this directory recorded.
-                        for a in &local {
-                            match c.anchors.iter().find(|x| x.seq == a.seq) {
-                                Some(x) if x.head == a.head => {}
-                                _ => {
-                                    return Err(format!(
-                                        "Canton's chain {} does not match this data directory at batch #{} \
-                                         (was the sandbox restarted and the chain created again?)",
-                                        info.chain_id, a.seq
-                                    ));
-                                }
-                            }
-                        }
-                    }
-                }
-                Ok((info, Box::new(ledger)))
-            }
-        }
-    }
-
-    /// The anchors as `party`'s ledger copy holds them, and a label saying where they came from.
-    /// This is what a verifier compares against: never the node's own files when Canton is used.
-    pub fn anchors_as(&self, party: &str) -> Result<(Vec<Anchor>, String), String> {
-        let info = self.info().map_err(|e| e.to_string())?;
-        match &info.ledger {
-            LedgerConfig::Sim => Ok((
-                self.load_anchors().map_err(|e| e.to_string())?,
-                format!("SimLedger stand-in ({})", self.anchors().display()),
-            )),
-            LedgerConfig::Canton(_) => {
-                let (info, ledger) = self.open_ledger(false)?;
-                let copy = ledger
-                    .copy(party, &info.chain_id)
-                    .ok_or_else(|| format!("{party} holds no copy of chain {} on Canton", info.chain_id))?;
-                Ok((copy.anchors.clone(), format!("{party}'s view on Canton")))
-            }
-        }
-    }
-
-    /// Rebuilds the node and its ledger from disk, ready to keep appending.
+    /// Rebuilds the node from disk, given the last batch number the ledger holds.
     ///
     /// Batches sealed locally but never anchored (a crash between the two) are dropped from the
-    /// node's files; their rows will be read from the source again.
-    pub fn restore(&self) -> Result<Restored, String> {
-        let (info, ledger) = self.open_ledger(true)?;
-        let anchors = ledger.copy(&info.submitter, &info.chain_id).map(|c| c.anchors.clone()).unwrap_or_default();
-        let last = anchors.last().map_or(0, |a| a.seq);
-
+    /// node's files; their transactions will be read from the source again.
+    pub fn restore(&self, anchored_seq: u64) -> Result<Restored, String> {
+        let info = self.info().map_err(|e| format!("reading {}: {e}", self.chain().display()))?;
         let _lock = self.lock().map_err(|e| e.to_string())?;
         let (mut trail, _) = self.load_trail_from(None).map_err(|e| e.to_string())?;
         let mut batches = self.load_batches().map_err(|e| e.to_string())?;
         let saved = batches.last().map_or(0, |b| b.seq);
-        if saved < last {
+        if saved < anchored_seq {
             return Err(format!(
-                "the ledger holds batches up to #{last} but this node only saved up to #{saved}; the node stopped \
-                 between anchoring and saving. Start a new chain with another --data directory"
+                "the ledger holds batches up to #{anchored_seq} but this node only saved up to #{saved}; the node \
+                 stopped between anchoring and saving. Start a new chain with another --data directory"
             ));
         }
         let (t0, b0) = (trail.len(), batches.len());
-        trail.retain(|r| r.batch_seq <= last);
-        batches.retain(|b| b.seq <= last);
+        trail.retain(|r| r.batch_seq <= anchored_seq);
+        batches.retain(|b| b.seq <= anchored_seq);
         if trail.len() != t0 || batches.len() != b0 {
             rewrite_jsonl(&self.trail(), &trail).map_err(|e| e.to_string())?;
             rewrite_jsonl(&self.batches(), &batches).map_err(|e| e.to_string())?;
+            let mut receipts = self.load_receipts().map_err(|e| e.to_string())?;
+            receipts.retain(|a| a.seq <= anchored_seq);
+            rewrite_jsonl(&self.receipts(), &receipts).map_err(|e| e.to_string())?;
         }
-        let cursor = self.load_cursor().map_err(|e| e.to_string())?;
-        let node = FeedNode::new(&info.submitter, &info.chain_id, &info.system, info.chain_start.clone())
-            .restore(trail, batches);
-        Ok(Restored { info, node, ledger, cursor })
-    }
-}
-
-/// A node and its ledger, rebuilt from disk.
-pub struct Restored {
-    pub info: ChainInfo,
-    pub node: FeedNode,
-    pub ledger: Box<dyn AuditLedger>,
-    pub cursor: Option<AuditCursor>,
-}
-
-/// The submission that produced an anchor.
-pub fn input_of(a: &Anchor) -> AnchorInput {
-    AnchorInput {
-        seq: a.seq,
-        prev_head: a.prev_head.clone(),
-        head: a.head.clone(),
-        merkle_root: a.merkle_root.clone(),
-        event_count: a.event_count,
-        from_pos: a.from_pos.clone(),
-        to_pos: a.to_pos.clone(),
-        from_time: a.from_time.clone(),
-        to_time: a.to_time.clone(),
+        let cursor = Cursor { last_tx: batches.iter().map(|b| b.to_tx).max().unwrap_or(0) };
+        write_json(&self.cursor(), &cursor).map_err(|e| e.to_string())?;
+        let node = Node::new(&info.submitter, &info.chain_id, info.chain_start.clone()).restore(trail, batches);
+        Ok(Restored { info, node, cursor })
     }
 }
 
@@ -348,16 +225,13 @@ pub fn append_jsonl<T: Serialize>(path: &Path, items: &[T]) -> io::Result<()> {
 /// Replaces a JSONL file atomically (write a temporary file, then rename it over the original).
 pub fn rewrite_jsonl<T: Serialize>(path: &Path, items: &[T]) -> io::Result<()> {
     let tmp = path.with_extension("jsonl.tmp");
-    let _ = fs::remove_file(&tmp);
+    File::create(&tmp)?;
     append_jsonl(&tmp, items)?;
-    if items.is_empty() {
-        File::create(&tmp)?;
-    }
     fs::rename(tmp, path)
 }
 
 /// Reads a JSONL file. Lines that do not parse (a half-written last line, or a hand-edited one) are
-/// skipped and counted.
+/// skipped and counted. A missing file reads as empty.
 pub fn read_jsonl<T: DeserializeOwned>(path: &Path) -> io::Result<(Vec<T>, usize)> {
     let f = match File::open(path) {
         Ok(f) => f,
@@ -382,21 +256,54 @@ pub fn read_jsonl<T: DeserializeOwned>(path: &Path) -> io::Result<(Vec<T>, usize
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::plan_seal;
     use sthira_core::genesis_head;
-    use sthira_profiles::audit_api::AuditLogEntry;
-
-    fn row(id: u64) -> AuditLogEntry {
-        serde_json::from_value(serde_json::json!({
-            "id": id, "operation": "INSERT", "table_name": "t", "record_id": id.to_string(),
-            "new_data": {"id": id}, "created_at": "2026-11-18T00:00:00Z"
-        }))
-        .unwrap()
-    }
 
     fn tmpdir(name: &str) -> PathBuf {
         let d = std::env::temp_dir().join(format!("sthira-persist-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&d);
         d
+    }
+
+    /// A sealed batch as the node would produce it, without a ledger.
+    fn sealed(seq: u64, to_tx: u64) -> Sealed {
+        let ev = serde_json::json!({ "n": seq });
+        let plan = plan_seal("DT", &genesis_head("DT"), "T0", None, &[&ev], Some((to_tx, to_tx, 1)), "T1".into());
+        let mut anchor_input = plan.anchor_input();
+        anchor_input.seq = seq;
+        let batch = BatchRecord {
+            seq,
+            prev_head: plan.prev_head.clone(),
+            head: plan.head.clone(),
+            merkle_root: plan.tree.hash.clone(),
+            event_count: 1,
+            tx_count: 1,
+            from_tx: to_tx,
+            to_tx,
+            from_time: "T0".into(),
+            to_time: "T1".into(),
+            contract_id: format!("c{seq}"),
+            update_id: format!("u{seq}"),
+        };
+        let anchor = Anchor {
+            contract_id: batch.contract_id.clone(),
+            chain_id: "DT".into(),
+            seq,
+            prev_head: batch.prev_head.clone(),
+            head: batch.head.clone(),
+            merkle_root: batch.merkle_root.clone(),
+            leaves: plan.leaves.clone(),
+            event_count: 1,
+            tx_count: 1,
+            from_tx: to_tx,
+            to_tx,
+            from_time: "T0".into(),
+            to_time: "T1".into(),
+            signatories: vec!["DT".into(), "AUDITOR".into()],
+            update_id: batch.update_id.clone(),
+            recorded_at: "T1".into(),
+        };
+        Sealed { batch, anchor, rows: Vec::new() }
     }
 
     #[test]
@@ -407,35 +314,24 @@ mod tests {
             submitter: "DT".into(),
             members: vec!["DT".into(), "AUDITOR".into()],
             genesis_head: genesis_head("DT"),
-            chain_start: "2026-11-18T00:00:00.000000Z".into(),
-            api_url: "memory".into(),
-            system: "api.example".into(),
-            ledger: LedgerConfig::Sim,
+            chain_start: "T0".into(),
+            source: "changes.jsonl".into(),
+            ledger_url: "http://localhost:7575".into(),
+            ledger_user: "sthira-node".into(),
         };
         dir.init(&info).unwrap();
         assert!(dir.init(&info).is_err(), "never overwrites a chain");
+        dir.commit(&sealed(1, 4)).unwrap();
+        dir.commit(&sealed(2, 9)).unwrap();
+        assert_eq!(dir.load_cursor().unwrap().last_tx, 9);
 
-        let mut r = dir.restore().unwrap();
-        let mut cursor = AuditCursor::after(0);
-        r.node.ingest(&(1..=4).map(row).collect::<Vec<_>>(), &[], "t");
-        let s = r.node.seal(r.ledger.as_mut(), "2026-11-18T00:00:10.000000Z".into()).unwrap();
-        cursor.contiguous = 4;
-        dir.commit(&s, &cursor).unwrap();
-
-        // A batch sealed and written locally, but whose anchor never reached the ledger file.
-        r.node.ingest(&[row(5)], &[], "t");
-        let s2 = r.node.seal(r.ledger.as_mut(), "2026-11-18T00:00:20.000000Z".into()).unwrap();
-        append_jsonl(&dir.trail(), &s2.rows).unwrap();
-        append_jsonl(&dir.batches(), &[s2.batch]).unwrap();
-
-        let mut r = dir.restore().unwrap();
-        assert_eq!(r.node.store.len(), 4);
-        assert_eq!(r.node.last_seq(), 1);
-        assert_eq!(r.cursor.unwrap().contiguous, 4);
-        // Row 5 is read again and sealed as batch 2; rows 1-4 are not stored twice.
-        assert_eq!(r.node.ingest(&(1..=5).map(row).collect::<Vec<_>>(), &[], "t"), 1);
-        let s = r.node.seal(r.ledger.as_mut(), "2026-11-18T00:00:30.000000Z".into()).unwrap();
-        assert_eq!(s.batch.seq, 2);
+        // The ledger only got batch 1: batch 2 is dropped and capture resumes after tx 4.
+        let r = dir.restore(1).unwrap();
+        assert_eq!((r.node.last_seq(), r.node.last_tx, r.cursor.last_tx), (1, 4, 4));
+        assert_eq!(dir.load_receipts().unwrap().len(), 1);
+        assert_eq!(dir.load_cursor().unwrap().last_tx, 4);
+        // The ledger is ahead of the node: refuse.
+        assert!(dir.restore(3).is_err());
         let _ = fs::remove_dir_all(&dir.root);
     }
 
@@ -447,6 +343,8 @@ mod tests {
         fs::write(&p, "{\"a\":1}\n{broken\n{\"a\":2}\n{\"a\":").unwrap();
         let (v, bad): (Vec<serde_json::Value>, usize) = read_jsonl(&p).unwrap();
         assert_eq!((v.len(), bad), (2, 2));
+        rewrite_jsonl::<serde_json::Value>(&p, &[]).unwrap();
+        assert_eq!(fs::read_to_string(&p).unwrap(), "");
         let _ = fs::remove_dir_all(&d);
     }
 }
