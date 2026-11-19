@@ -7,5 +7,6 @@ services:
     plan: free
     region: singapore
     dockerfilePath: ./Dockerfile
+    branch: demo        # the web demo lives on the `demo` branch; main/prototype carry no Dockerfile
     healthCheckPath: /api/state
     autoDeploy: true
