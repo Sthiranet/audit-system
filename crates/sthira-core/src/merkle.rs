@@ -101,6 +101,29 @@ pub fn inclusion_proof(leaves: &[String], index: usize) -> Option<Vec<String>> {
     Some(out)
 }
 
+/// Every leaf's audit path at once, in O(n log n) hashes; equal to calling [`inclusion_proof`] for
+/// each index, which costs O(n) hashes per leaf.
+pub fn all_inclusion_proofs(leaves: &[String]) -> Vec<Vec<String>> {
+    fn build(leaves: &[String], out: &mut [Vec<String>]) -> String {
+        let n = leaves.len();
+        if n == 1 {
+            return leaves[0].clone();
+        }
+        let k = split(n);
+        let (lo, hi) = out.split_at_mut(k);
+        let left = build(&leaves[..k], lo);
+        let right = build(&leaves[k..], hi);
+        lo.iter_mut().for_each(|p| p.push(right.clone()));
+        hi.iter_mut().for_each(|p| p.push(left.clone()));
+        node_hash(&left, &right)
+    }
+    let mut out = vec![Vec::new(); leaves.len()];
+    if !leaves.is_empty() {
+        build(leaves, &mut out);
+    }
+    out
+}
+
 /// Checks that `leaf` sits at `index` in a tree of `size` leaves whose root is `root`.
 pub fn verify_inclusion(leaf: &str, index: usize, size: usize, proof: &[String], root: &str) -> bool {
     fn fold(hash: &str, m: usize, n: usize, proof: &[String]) -> Option<String> {
@@ -178,6 +201,14 @@ mod tests {
     }
 
     proptest! {
+        #[test]
+        fn all_proofs_at_once_equal_each_proof(leaves in arb_leaves()) {
+            let all = all_inclusion_proofs(&leaves);
+            for (i, p) in all.iter().enumerate() {
+                prop_assert_eq!(p, &inclusion_proof(&leaves, i).unwrap());
+            }
+        }
+
         #[test]
         fn every_valid_proof_verifies(leaves in arb_leaves(), pick in any::<prop::sample::Index>()) {
             let i = pick.index(leaves.len());

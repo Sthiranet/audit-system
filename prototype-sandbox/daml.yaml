@@ -1,0 +1,10 @@
+# Sthiranet audit-anchoring Daml package (Canton 3.x).
+# Build: dpm build   ·   Test: dpm test   ·   Run: ./sandbox.sh (see README.md)
+sdk-version: 3.6.4
+name: sthiranet-audit
+source: daml
+version: 0.1.0
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script

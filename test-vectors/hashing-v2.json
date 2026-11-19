@@ -1,0 +1,270 @@
+{
+  "spec": "sthiranet hashing v2",
+  "events": [
+    {
+      "salt": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "event": {
+        "v": 2,
+        "chain": "DT",
+        "source": {
+          "connector": "dreamtalk-audit-api",
+          "system": "audit-api.example.test",
+          "table": "api_request_log",
+          "pos": "1001",
+          "channel": "GET",
+          "origin": null
+        },
+        "key": {
+          "id": "501"
+        },
+        "op": "insert",
+        "before": null,
+        "after": {
+          "id": 501,
+          "user": null,
+          "status": "SUCCESS",
+          "endpoint": "/reviews/summary/",
+          "duration_ms": 17.68,
+          "status_code": 200,
+          "error_message": "No survey pending summary"
+        },
+        "actor": {
+          "id": null,
+          "name": null,
+          "org": null,
+          "kind": "system"
+        },
+        "committed_at": "2026-11-18T05:39:01.767051Z",
+        "captured_at": "2026-11-18T05:39:05.000000Z"
+      },
+      "canonical": "{\"actor\":{\"id\":null,\"kind\":\"system\",\"name\":null,\"org\":null},\"after\":{\"duration_ms\":17.68,\"endpoint\":\"/reviews/summary/\",\"error_message\":\"No survey pending summary\",\"id\":501,\"status\":\"SUCCESS\",\"status_code\":200,\"user\":null},\"before\":null,\"captured_at\":\"2026-11-18T05:39:05.000000Z\",\"chain\":\"DT\",\"committed_at\":\"2026-11-18T05:39:01.767051Z\",\"key\":{\"id\":\"501\"},\"op\":\"insert\",\"source\":{\"channel\":\"GET\",\"connector\":\"dreamtalk-audit-api\",\"origin\":null,\"pos\":\"1001\",\"system\":\"audit-api.example.test\",\"table\":\"api_request_log\"},\"v\":2}",
+      "leaf": "442e27e0205b756b44ac6fb1638827abd27c81f4370b1ae6a80ab778321de9f2"
+    },
+    {
+      "salt": "a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2",
+      "event": {
+        "v": 2,
+        "chain": "DT",
+        "source": {
+          "connector": "dreamtalk-audit-api",
+          "system": "audit-api.example.test",
+          "table": "app_user",
+          "pos": "1002",
+          "channel": "POST",
+          "origin": null
+        },
+        "key": {
+          "id": "724"
+        },
+        "op": "update",
+        "before": null,
+        "after": {
+          "id": 724,
+          "role": "ORG_ADMIN",
+          "is_staff": false,
+          "is_superuser": false,
+          "password": "***MASKED***",
+          "full_name": "Test User 0001",
+          "organization": 7
+        },
+        "actor": {
+          "id": "42",
+          "name": "Asha Rao",
+          "org": "7",
+          "kind": "user"
+        },
+        "committed_at": "2026-11-18T05:39:02.100000Z",
+        "captured_at": "2026-11-18T05:39:05.000000Z"
+      },
+      "canonical": "{\"actor\":{\"id\":\"42\",\"kind\":\"user\",\"name\":\"Asha Rao\",\"org\":\"7\"},\"after\":{\"full_name\":\"Test User 0001\",\"id\":724,\"is_staff\":false,\"is_superuser\":false,\"organization\":7,\"password\":\"***MASKED***\",\"role\":\"ORG_ADMIN\"},\"before\":null,\"captured_at\":\"2026-11-18T05:39:05.000000Z\",\"chain\":\"DT\",\"committed_at\":\"2026-11-18T05:39:02.100000Z\",\"key\":{\"id\":\"724\"},\"op\":\"update\",\"source\":{\"channel\":\"POST\",\"connector\":\"dreamtalk-audit-api\",\"origin\":null,\"pos\":\"1002\",\"system\":\"audit-api.example.test\",\"table\":\"app_user\"},\"v\":2}",
+      "leaf": "86f1e0a77982e1a10ac995f12d59f6bb08f3fb86acda1918939f4358fbc2ee99"
+    },
+    {
+      "salt": "a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3",
+      "event": {
+        "v": 2,
+        "chain": "DT",
+        "source": {
+          "connector": "dreamtalk-audit-api",
+          "system": "audit-api.example.test",
+          "table": "dreamaudio_recordingpresence",
+          "pos": "1003",
+          "channel": null,
+          "origin": null
+        },
+        "key": {
+          "id": "24"
+        },
+        "op": "update",
+        "before": {
+          "id": 24,
+          "user": 42,
+          "last_seen": "2026-11-18T05:39:00.000000+00:00",
+          "display_name": "Asha Rao"
+        },
+        "after": {
+          "id": 24,
+          "user": 42,
+          "last_seen": "2026-11-18T05:39:03.500000+00:00",
+          "display_name": "Asha Rao"
+        },
+        "actor": {
+          "id": "42",
+          "name": "Asha Rao",
+          "org": "7",
+          "kind": "user"
+        },
+        "committed_at": "2026-11-18T05:39:03.510000Z",
+        "captured_at": "2026-11-18T05:39:05.000000Z"
+      },
+      "canonical": "{\"actor\":{\"id\":\"42\",\"kind\":\"user\",\"name\":\"Asha Rao\",\"org\":\"7\"},\"after\":{\"display_name\":\"Asha Rao\",\"id\":24,\"last_seen\":\"2026-11-18T05:39:03.500000+00:00\",\"user\":42},\"before\":{\"display_name\":\"Asha Rao\",\"id\":24,\"last_seen\":\"2026-11-18T05:39:00.000000+00:00\",\"user\":42},\"captured_at\":\"2026-11-18T05:39:05.000000Z\",\"chain\":\"DT\",\"committed_at\":\"2026-11-18T05:39:03.510000Z\",\"key\":{\"id\":\"24\"},\"op\":\"update\",\"source\":{\"channel\":null,\"connector\":\"dreamtalk-audit-api\",\"origin\":null,\"pos\":\"1003\",\"system\":\"audit-api.example.test\",\"table\":\"dreamaudio_recordingpresence\"},\"v\":2}",
+      "leaf": "b0548bd7459ed3a89d9639e4647206c4887a3e011bfdb7c753e4370e027390db"
+    },
+    {
+      "salt": "a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4",
+      "event": {
+        "v": 2,
+        "chain": "DT",
+        "source": {
+          "connector": "dreamtalk-audit-api",
+          "system": "audit-api.example.test",
+          "table": "chat_message",
+          "pos": "1004",
+          "channel": null,
+          "origin": null
+        },
+        "key": {
+          "id": "83ced43d-1460-4ab8-81b7-b134f3a0d251"
+        },
+        "op": "insert",
+        "before": null,
+        "after": {
+          "id": "83ced43d-1460-4ab8-81b7-b134f3a0d251",
+          "text": "Namaste — meeting at 5",
+          "meta": {
+            "pinned": false,
+            "score": 0.5
+          }
+        },
+        "actor": {
+          "id": "42",
+          "name": "Asha Rao",
+          "org": "7",
+          "kind": "user"
+        },
+        "committed_at": "2026-11-18T05:39:04.000000Z",
+        "captured_at": "2026-11-18T05:39:05.000000Z"
+      },
+      "canonical": "{\"actor\":{\"id\":\"42\",\"kind\":\"user\",\"name\":\"Asha Rao\",\"org\":\"7\"},\"after\":{\"id\":\"83ced43d-1460-4ab8-81b7-b134f3a0d251\",\"meta\":{\"pinned\":false,\"score\":0.5},\"text\":\"Namaste — meeting at 5\"},\"before\":null,\"captured_at\":\"2026-11-18T05:39:05.000000Z\",\"chain\":\"DT\",\"committed_at\":\"2026-11-18T05:39:04.000000Z\",\"key\":{\"id\":\"83ced43d-1460-4ab8-81b7-b134f3a0d251\"},\"op\":\"insert\",\"source\":{\"channel\":null,\"connector\":\"dreamtalk-audit-api\",\"origin\":null,\"pos\":\"1004\",\"system\":\"audit-api.example.test\",\"table\":\"chat_message\"},\"v\":2}",
+      "leaf": "15747041b2f7a460384326c7b8b029b55186bcac2939ed23bba249ffb7ba55c7"
+    },
+    {
+      "salt": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "event": {
+        "v": 2,
+        "chain": "DT",
+        "source": {
+          "connector": "dreamtalk-audit-api",
+          "system": "audit-api.example.test",
+          "table": "dreamreviews_surveyquestionsubmissions",
+          "pos": "1005",
+          "channel": null,
+          "origin": null
+        },
+        "key": {
+          "id": "1839"
+        },
+        "op": "delete",
+        "before": {
+          "id": 1839,
+          "parsed": false,
+          "status": "PENDING",
+          "question": 1104,
+          "transcript": null
+        },
+        "after": null,
+        "actor": {
+          "id": null,
+          "name": null,
+          "org": null,
+          "kind": "system"
+        },
+        "committed_at": "2026-11-18T05:39:04.900000Z",
+        "captured_at": "2026-11-18T05:39:05.000000Z"
+      },
+      "canonical": "{\"actor\":{\"id\":null,\"kind\":\"system\",\"name\":null,\"org\":null},\"after\":null,\"before\":{\"id\":1839,\"parsed\":false,\"question\":1104,\"status\":\"PENDING\",\"transcript\":null},\"captured_at\":\"2026-11-18T05:39:05.000000Z\",\"chain\":\"DT\",\"committed_at\":\"2026-11-18T05:39:04.900000Z\",\"key\":{\"id\":\"1839\"},\"op\":\"delete\",\"source\":{\"channel\":null,\"connector\":\"dreamtalk-audit-api\",\"origin\":null,\"pos\":\"1005\",\"system\":\"audit-api.example.test\",\"table\":\"dreamreviews_surveyquestionsubmissions\"},\"v\":2}",
+      "leaf": "5a8933867423e501c8356d9beff092d0d1b8ba95c3956ce60000a0efb2ddbd76"
+    }
+  ],
+  "batch": {
+    "leaves": [
+      "442e27e0205b756b44ac6fb1638827abd27c81f4370b1ae6a80ab778321de9f2",
+      "86f1e0a77982e1a10ac995f12d59f6bb08f3fb86acda1918939f4358fbc2ee99",
+      "b0548bd7459ed3a89d9639e4647206c4887a3e011bfdb7c753e4370e027390db",
+      "15747041b2f7a460384326c7b8b029b55186bcac2939ed23bba249ffb7ba55c7",
+      "5a8933867423e501c8356d9beff092d0d1b8ba95c3956ce60000a0efb2ddbd76"
+    ],
+    "root": "30d9572740d9c77283d1949b3e836dfa68f04bce5207d488d491445c94960904",
+    "proofs": [
+      {
+        "index": 0,
+        "path": [
+          "86f1e0a77982e1a10ac995f12d59f6bb08f3fb86acda1918939f4358fbc2ee99",
+          "25b5b6f35fbb4ec2740a0b80bfeef9459ceef930a7cd73df62b10a8d6ca6b115",
+          "5a8933867423e501c8356d9beff092d0d1b8ba95c3956ce60000a0efb2ddbd76"
+        ]
+      },
+      {
+        "index": 1,
+        "path": [
+          "442e27e0205b756b44ac6fb1638827abd27c81f4370b1ae6a80ab778321de9f2",
+          "25b5b6f35fbb4ec2740a0b80bfeef9459ceef930a7cd73df62b10a8d6ca6b115",
+          "5a8933867423e501c8356d9beff092d0d1b8ba95c3956ce60000a0efb2ddbd76"
+        ]
+      },
+      {
+        "index": 2,
+        "path": [
+          "15747041b2f7a460384326c7b8b029b55186bcac2939ed23bba249ffb7ba55c7",
+          "f942223910193f91cfdca8d9c516f8ba0cc13dc2779a9689bd06bc3bc2003bf6",
+          "5a8933867423e501c8356d9beff092d0d1b8ba95c3956ce60000a0efb2ddbd76"
+        ]
+      },
+      {
+        "index": 3,
+        "path": [
+          "b0548bd7459ed3a89d9639e4647206c4887a3e011bfdb7c753e4370e027390db",
+          "f942223910193f91cfdca8d9c516f8ba0cc13dc2779a9689bd06bc3bc2003bf6",
+          "5a8933867423e501c8356d9beff092d0d1b8ba95c3956ce60000a0efb2ddbd76"
+        ]
+      },
+      {
+        "index": 4,
+        "path": [
+          "2044b963fee8a687a4e35945cb9e44ad171a06882f924ea61247e579c9fe324b"
+        ]
+      }
+    ]
+  },
+  "genesis": {
+    "chain": "DT",
+    "head": "81951333a409fb59c7fe4657a5929a83cf4c4b92d14e24503c10282211af170e"
+  },
+  "heads": [
+    {
+      "prev_head": "81951333a409fb59c7fe4657a5929a83cf4c4b92d14e24503c10282211af170e",
+      "root": "30d9572740d9c77283d1949b3e836dfa68f04bce5207d488d491445c94960904",
+      "meta": {
+        "chain": "DT",
+        "seq": 1,
+        "from_pos": "1001",
+        "to_pos": "1005",
+        "from_time": "2026-11-18T05:38:55.000000Z",
+        "to_time": "2026-11-18T05:39:05.000000Z",
+        "event_count": 5
+      },
+      "canonical_meta": "{\"chain\":\"DT\",\"event_count\":5,\"from_pos\":\"1001\",\"from_time\":\"2026-11-18T05:38:55.000000Z\",\"seq\":1,\"to_pos\":\"1005\",\"to_time\":\"2026-11-18T05:39:05.000000Z\"}",
+      "head": "6edc2dd48b60c4e08555629bd57b833bcb95985108de1611122d8d3b7846b7a1"
+    }
+  ]
+}

@@ -39,3 +39,5 @@ tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["fs"] }
 http-body-util = "0.1"
 proptest = "1"
+ureq = { version = "3", default-features = false, features = ["rustls", "json"] }
+clap = { version = "4", features = ["derive", "env"] }

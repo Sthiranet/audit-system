@@ -7,7 +7,11 @@
 //!
 //! Another industry (lending, CCTV hashes, pharma batches) would get its own profile; the kernel and
 //! node layers don't change.
+//!
+//! [`audit_api`] is the second profile: a live application audit-log API (spec v2 events) instead of
+//! a database change stream.
 
+pub mod audit_api;
 mod debezium;
 mod source;
 

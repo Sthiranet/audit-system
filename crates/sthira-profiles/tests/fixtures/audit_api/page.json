@@ -1,0 +1,461 @@
+{
+ "response": {
+  "count": 20,
+  "next": null,
+  "previous": null,
+  "results": [
+   {
+    "id": 5020,
+    "user_id": 9001,
+    "user_name": "Demo Admin",
+    "org_id": null,
+    "http_method": "DELETE",
+    "operation": "DELETE",
+    "table_name": "app_user",
+    "record_id": "725",
+    "old_data": {
+     "id": 725,
+     "role": "User",
+     "is_superuser": false,
+     "username": "0000000002"
+    },
+    "new_data": null,
+    "domain": null,
+    "created_at": "2026-11-18T05:10:19.150461Z"
+   },
+   {
+    "id": 5019,
+    "user_id": null,
+    "user_name": null,
+    "org_id": null,
+    "http_method": "GET",
+    "operation": "INSERT",
+    "table_name": "api_request_log",
+    "record_id": "44460",
+    "old_data": null,
+    "new_data": {
+     "id": 44460,
+     "status": "SUCCESS",
+     "endpoint": "/audit/",
+     "duration_ms": 4.5,
+     "http_method": "GET",
+     "status_code": 200
+    },
+    "domain": null,
+    "created_at": "2026-11-18T05:10:18.142542Z"
+   },
+   {
+    "id": 5018,
+    "user_id": null,
+    "user_name": null,
+    "org_id": null,
+    "http_method": null,
+    "operation": "DELETE",
+    "table_name": "dreamreviews_surveyquestionsubmissions",
+    "record_id": "712",
+    "old_data": {
+     "id": 712,
+     "parsed": false,
+     "status": "PENDING",
+     "question": 1102,
+     "created_at": "2026-11-18T05:10:07.055433+00:00",
+     "transcript": null
+    },
+    "new_data": null,
+    "domain": null,
+    "created_at": "2026-11-18T05:10:17.134623Z"
+   },
+   {
+    "id": 5017,
+    "user_id": null,
+    "user_name": null,
+    "org_id": null,
+    "http_method": null,
+    "operation": "INSERT",
+    "table_name": "archive_archiveentry",
+    "record_id": "2118",
+    "old_data": null,
+    "new_data": {
+     "id": 2118,
+     "data": {
+      "status": "PENDING",
+      "question_id": 1102
+     },
+     "files": {},
+     "object_pk": "712",
+     "deleted_at": "2026-11-18T05:10:16.126704+00:00",
+     "object_repr": "SurveyQuestionSubmissions object (712)",
+     "content_type": 42
+    },
+    "domain": null,
+    "created_at": "2026-11-18T05:10:16.126704Z"
+   },
+   {
+    "id": 5016,
+    "user_id": 9002,
+    "user_name": "Demo Member",
+    "org_id": null,
+    "http_method": null,
+    "operation": "UPDATE",
+    "table_name": "chat_messagereceipt",
+    "record_id": "132",
+    "old_data": null,
+    "new_data": {
+     "id": 132,
+     "user": 9002,
+     "message": "83ced43d-1460-4ab8-81b7-b134f3a0d251",
+     "seen_at": "2026-11-18T05:10:15.118785+00:00"
+    },
+    "domain": null,
+    "created_at": "2026-11-18T05:10:15.118785Z"
+   },
+   {
+    "id": 5015,
+    "user_id": 9001,
+    "user_name": "Demo Admin",
+    "org_id": null,
+    "http_method": null,
+    "operation": "INSERT",
+    "table_name": "chat_message",
+    "record_id": "83ced43d-1460-4ab8-81b7-b134f3a0d251",
+    "old_data": null,
+    "new_data": {
+     "id": "83ced43d-1460-4ab8-81b7-b134f3a0d251",
+     "text": "See you at 5 — room 2",
+     "sender": 9001,
+     "is_deleted": false,
+     "conversation": "82703b1f-9c09-41db-89b0-44bb6a70c312"
+    },
+    "domain": null,
+    "created_at": "2026-11-18T05:10:14.110866Z"
+   },
+   {
+    "id": 5014,
+    "user_id": 9001,
+    "user_name": "Demo Admin",
+    "org_id": null,
+    "http_method": null,
+    "operation": "UPDATE",
+    "table_name": "dreamaudio_recordingpresence",
+    "record_id": "24",
+    "old_data": {
+     "id": 24,
+     "user": 9001,
+     "last_seen": "2026-11-18T05:10:12.095028+00:00",
+     "display_name": "Demo Admin"
+    },
+    "new_data": {
+     "id": 24,
+     "user": 9001,
+     "last_seen": "2026-11-18T05:10:13.102947+00:00",
+     "display_name": "Demo Admin"
+    },
+    "domain": null,
+    "created_at": "2026-11-18T05:10:13.102947Z"
+   },
+   {
+    "id": 5013,
+    "user_id": null,
+    "user_name": null,
+    "org_id": null,
+    "http_method": null,
+    "operation": "UPDATE",
+    "table_name": "dreamaudio_bot_session",
+    "record_id": "45",
+    "old_data": null,
+    "new_data": {
+     "id": 45,
+     "user": 9001,
+     "error": "",
+     "bot_id": "0c7ff6f7-dd83-425b-b8d9-a00273757712",
+     "status": "RECORDING",
+     "provider": "google",
+     "created_at": "2026-11-18T05:10:11.087109+00:00",
+     "meeting_url": "https://meet.example.test/abc-defg-hij"
+    },
+    "domain": null,
+    "created_at": "2026-11-18T05:10:12.095028Z"
+   },
+   {
+    "id": 5012,
+    "user_id": 9001,
+    "user_name": "Demo Admin",
+    "org_id": null,
+    "http_method": null,
+    "operation": "INSERT",
+    "table_name": "dreamaudio_bot_session",
+    "record_id": "45",
+    "old_data": null,
+    "new_data": {
+     "id": 45,
+     "user": 9001,
+     "error": "",
+     "bot_id": "0c7ff6f7-dd83-425b-b8d9-a00273757712",
+     "status": "QUEUED",
+     "provider": "google",
+     "created_at": "2026-11-18T05:10:11.087109+00:00",
+     "meeting_url": "https://meet.example.test/abc-defg-hij"
+    },
+    "domain": null,
+    "created_at": "2026-11-18T05:10:11.087109Z"
+   },
+   {
+    "id": 5011,
+    "user_id": 9001,
+    "user_name": "Demo Admin",
+    "org_id": null,
+    "http_method": "PATCH",
+    "operation": "UPDATE",
+    "table_name": "app_user",
+    "record_id": "724",
+    "old_data": {
+     "id": 724,
+     "role": "User",
+     "is_staff": false,
+     "is_superuser": false,
+     "full_name": "Load Test 0001"
+    },
+    "new_data": {
+     "id": 724,
+     "role": "ORG_ADMIN",
+     "is_staff": false,
+     "is_superuser": false,
+     "full_name": "Load Test 0001"
+    },
+    "domain": null,
+    "created_at": "2026-11-18T05:10:10.079190Z"
+   },
+   {
+    "id": 5010,
+    "user_id": 9001,
+    "user_name": "Demo Admin",
+    "org_id": null,
+    "http_method": null,
+    "operation": "INSERT",
+    "table_name": "app_useractivity",
+    "record_id": "3881",
+    "old_data": null,
+    "new_data": {
+     "id": 3881,
+     "user": 9001,
+     "details": {
+      "ip": "192.0.2.10"
+     },
+     "created_at": "2026-11-18T05:10:09.071271+00:00",
+     "activity_type": "LOGIN"
+    },
+    "domain": null,
+    "created_at": "2026-11-18T05:10:09.071271Z"
+   },
+   {
+    "id": 5009,
+    "user_id": null,
+    "user_name": null,
+    "org_id": null,
+    "http_method": "POST",
+    "operation": "UPDATE",
+    "table_name": "dreamreviews_surveysubmissions",
+    "record_id": "628",
+    "old_data": null,
+    "new_data": {
+     "id": 628,
+     "status": true,
+     "survey": 377,
+     "created_at": "2026-11-18T05:10:05.039595+00:00",
+     "survey_user": 628,
+     "submission_status": "Submitted"
+    },
+    "domain": null,
+    "created_at": "2026-11-18T05:10:08.063352Z"
+   },
+   {
+    "id": 5008,
+    "user_id": null,
+    "user_name": null,
+    "org_id": null,
+    "http_method": "POST",
+    "operation": "INSERT",
+    "table_name": "dreamreviews_surveyquestionsubmissions",
+    "record_id": "712",
+    "old_data": null,
+    "new_data": {
+     "id": 712,
+     "parsed": false,
+     "status": "PENDING",
+     "question": 1102,
+     "created_at": "2026-11-18T05:10:07.055433+00:00",
+     "transcript": null,
+     "failed_count": 0,
+     "submission_video": 721,
+     "survey_submission": 628
+    },
+    "domain": null,
+    "created_at": "2026-11-18T05:10:07.055433Z"
+   },
+   {
+    "id": 5007,
+    "user_id": null,
+    "user_name": null,
+    "org_id": null,
+    "http_method": "POST",
+    "operation": "INSERT",
+    "table_name": "dreamreviews_media",
+    "record_id": "721",
+    "old_data": null,
+    "new_data": {
+     "id": 721,
+     "media": "",
+     "created_at": "2026-11-18T05:10:06.047514+00:00",
+     "media_type": "video",
+     "video_link": "https://media.example.test/videos/load_0001.webm"
+    },
+    "domain": null,
+    "created_at": "2026-11-18T05:10:06.047514Z"
+   },
+   {
+    "id": 5006,
+    "user_id": null,
+    "user_name": null,
+    "org_id": null,
+    "http_method": "POST",
+    "operation": "INSERT",
+    "table_name": "dreamreviews_surveysubmissions",
+    "record_id": "628",
+    "old_data": null,
+    "new_data": {
+     "id": 628,
+     "status": false,
+     "survey": 377,
+     "created_at": "2026-11-18T05:10:05.039595+00:00",
+     "survey_user": 628,
+     "submission_status": "Invited"
+    },
+    "domain": null,
+    "created_at": "2026-11-18T05:10:05.039595Z"
+   },
+   {
+    "id": 5005,
+    "user_id": null,
+    "user_name": null,
+    "org_id": null,
+    "http_method": "POST",
+    "operation": "INSERT",
+    "table_name": "dreamreviews_surveyusers",
+    "record_id": "628",
+    "old_data": null,
+    "new_data": {
+     "id": 628,
+     "age": null,
+     "gender": "Male",
+     "survey": 377,
+     "created_at": "2026-11-18T05:10:04.031676+00:00",
+     "organization": 2,
+     "app_level_name": "Load Test 0001",
+     "organization_user": 714
+    },
+    "domain": null,
+    "created_at": "2026-11-18T05:10:04.031676Z"
+   },
+   {
+    "id": 5004,
+    "user_id": null,
+    "user_name": null,
+    "org_id": null,
+    "http_method": "POST",
+    "operation": "INSERT",
+    "table_name": "app_usermicroappaccess",
+    "record_id": "815",
+    "old_data": null,
+    "new_data": {
+     "id": 815,
+     "can_edit": false,
+     "micro_app": 1,
+     "organization_user": 714
+    },
+    "domain": null,
+    "created_at": "2026-11-18T05:10:03.023757Z"
+   },
+   {
+    "id": 5003,
+    "user_id": null,
+    "user_name": null,
+    "org_id": null,
+    "http_method": "POST",
+    "operation": "INSERT",
+    "table_name": "app_organizationuser",
+    "record_id": "714",
+    "old_data": null,
+    "new_data": {
+     "id": 714,
+     "role": "User",
+     "user": 724,
+     "created_at": "2026-11-18T05:10:02.015838+00:00",
+     "organization": 2,
+     "org_level_name": null
+    },
+    "domain": null,
+    "created_at": "2026-11-18T05:10:02.015838Z"
+   },
+   {
+    "id": 5002,
+    "user_id": null,
+    "user_name": null,
+    "org_id": null,
+    "http_method": "POST",
+    "operation": "INSERT",
+    "table_name": "app_user",
+    "record_id": "724",
+    "old_data": null,
+    "new_data": {
+     "id": 724,
+     "role": "User",
+     "email": null,
+     "is_staff": false,
+     "password": "***MASKED***",
+     "username": "0000000001",
+     "full_name": "Load Test 0001",
+     "is_active": true,
+     "is_superuser": false,
+     "organization": null,
+     "phone_number": "0000000001",
+     "date_joined": "2026-11-18T05:10:01.007919+00:00"
+    },
+    "domain": null,
+    "created_at": "2026-11-18T05:10:01.007919Z"
+   },
+   {
+    "id": 5001,
+    "user_id": null,
+    "user_name": null,
+    "org_id": null,
+    "http_method": "GET",
+    "operation": "INSERT",
+    "table_name": "api_request_log",
+    "record_id": "44459",
+    "old_data": null,
+    "new_data": {
+     "id": 44459,
+     "user": null,
+     "domain": "localhost",
+     "org_id": null,
+     "status": "SUCCESS",
+     "endpoint": "/reviews/process-survey-summary/",
+     "created_at": "2026-11-18T05:10:00.000000+00:00",
+     "ip_address": "127.0.0.1",
+     "user_agent": "curl/8.5.0",
+     "duration_ms": 17.68,
+     "http_method": "GET",
+     "status_code": 200,
+     "error_message": "No survey pending summary"
+    },
+    "domain": null,
+    "created_at": "2026-11-18T05:10:00.000000Z"
+   }
+  ]
+ },
+ "session_data": {},
+ "appstate": {
+  "is_logged_in": false,
+  "user_profile": null
+ }
+}

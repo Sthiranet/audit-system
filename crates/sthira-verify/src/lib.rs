@@ -4,11 +4,85 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+pub mod positions;
+
+pub use positions::{PosGap, PosHole, PositionReport, position_report};
+
 use serde::{Deserialize, Serialize};
 use sthira_batcher::StoreRow;
+use sthira_batcher::feed_node::FeedRow;
 use sthira_core::{BatchMeta, MerkleTree, head_hash, leaf_hash, merkle_tree, verify_inclusion};
 use sthira_ledger::Anchor;
+use sthira_profiles::audit_api::describe_audit;
 use sthira_profiles::{Description, describe};
+
+/// One record of an off-ledger trail, whatever profile produced it. The verifier needs only these
+/// facts, and recomputes the leaf itself; it never trusts `stored_leaf`.
+pub trait TrailRecord {
+    fn record_id(&self) -> &str;
+    fn key(&self) -> &str;
+    fn batch_seq(&self) -> u64;
+    fn index(&self) -> usize;
+    fn stored_leaf(&self) -> &str;
+    fn proof(&self) -> &[String];
+    /// `H(0x00 || salt || JCS(event))` from the stored salt and event.
+    fn recompute_leaf(&self) -> String;
+    fn description(&self) -> Description;
+}
+
+impl TrailRecord for StoreRow {
+    fn record_id(&self) -> &str {
+        &self.id
+    }
+    fn key(&self) -> &str {
+        &self.event.key.id
+    }
+    fn batch_seq(&self) -> u64 {
+        self.batch_seq
+    }
+    fn index(&self) -> usize {
+        self.index
+    }
+    fn stored_leaf(&self) -> &str {
+        &self.leaf_hash
+    }
+    fn proof(&self) -> &[String] {
+        &self.proof
+    }
+    fn recompute_leaf(&self) -> String {
+        leaf_hash(&self.salt, &self.event)
+    }
+    fn description(&self) -> Description {
+        describe(&self.event)
+    }
+}
+
+impl TrailRecord for FeedRow {
+    fn record_id(&self) -> &str {
+        &self.id
+    }
+    fn key(&self) -> &str {
+        &self.event.key.id
+    }
+    fn batch_seq(&self) -> u64 {
+        self.batch_seq
+    }
+    fn index(&self) -> usize {
+        self.index
+    }
+    fn stored_leaf(&self) -> &str {
+        &self.leaf_hash
+    }
+    fn proof(&self) -> &[String] {
+        &self.proof
+    }
+    fn recompute_leaf(&self) -> String {
+        leaf_hash(&self.salt, &self.event)
+    }
+    fn description(&self) -> Description {
+        describe_audit(&self.event)
+    }
+}
 
 /// A record that is no longer the one anchored at capture: its recomputed leaf, with the inclusion
 /// proof it carries, does not lead to the Merkle root on the ledger.
@@ -102,20 +176,30 @@ pub struct VerifyReport {
     pub event_count: usize,
 }
 
-/// Recomputes the trail `rows` of chain `chain_id` and compares it with `anchors`, which must come
-/// from the verifier's own ledger copy.
+/// Recomputes the finance trail `rows` of chain `chain_id` and compares it with `anchors`, which must
+/// come from the verifier's own ledger copy.
 pub fn verify_trail(chain_id: &str, genesis_head: &str, anchors: &[Anchor], rows: &[StoreRow]) -> VerifyReport {
-    let mut by_seq: BTreeMap<u64, Vec<&StoreRow>> = BTreeMap::new();
+    verify_records(chain_id, genesis_head, anchors, rows)
+}
+
+/// Recomputes any trail and compares it with `anchors` from the verifier's own ledger copy.
+pub fn verify_records<R: TrailRecord>(
+    chain_id: &str,
+    genesis_head: &str,
+    anchors: &[Anchor],
+    rows: &[R],
+) -> VerifyReport {
+    let mut by_seq: BTreeMap<u64, Vec<&R>> = BTreeMap::new();
     for r in rows {
-        by_seq.entry(r.batch_seq).or_default().push(r);
+        by_seq.entry(r.batch_seq()).or_default().push(r);
     }
 
     let mut prev_head = genesis_head.to_string();
     let mut batches = Vec::with_capacity(anchors.len());
     for a in anchors {
-        let mut evs: Vec<&StoreRow> = by_seq.get(&a.seq).cloned().unwrap_or_default();
-        evs.sort_by_key(|r| r.index);
-        let leaves: Vec<String> = evs.iter().map(|r| leaf_hash(&r.salt, &r.event)).collect();
+        let mut evs: Vec<&R> = by_seq.get(&a.seq).cloned().unwrap_or_default();
+        evs.sort_by_key(|r| r.index());
+        let leaves: Vec<String> = evs.iter().map(|r| r.recompute_leaf()).collect();
         let tree = merkle_tree(&leaves);
         let meta = BatchMeta {
             chain: chain_id.to_string(),
@@ -136,18 +220,18 @@ pub fn verify_trail(chain_id: &str, genesis_head: &str, anchors: &[Anchor], rows
             .iter()
             .zip(&leaves)
             .enumerate()
-            .filter(|(_, (r, l))| !verify_inclusion(l, r.index, size, &r.proof, &a.merkle_root))
+            .filter(|(_, (r, l))| !verify_inclusion(l, r.index(), size, r.proof(), &a.merkle_root))
             .map(|(i, (r, l))| LeafIssue {
-                index: r.index,
+                index: r.index(),
                 position: i,
-                event_id: r.id.clone(),
-                key: r.event.key.id.clone(),
-                recorded: r.leaf_hash.clone(),
+                event_id: r.record_id().to_string(),
+                key: r.key().to_string(),
+                recorded: r.stored_leaf().to_string(),
                 recomputed: l.clone(),
-                covered: r.leaf_hash == **l,
+                covered: r.stored_leaf() == l.as_str(),
             })
             .collect();
-        let present: BTreeSet<usize> = evs.iter().map(|r| r.index).collect();
+        let present: BTreeSet<usize> = evs.iter().map(|r| r.index()).collect();
         let missing_indexes: Vec<usize> = (0..size).filter(|i| !present.contains(i)).collect();
 
         let root_match = tree.hash == a.merkle_root;
@@ -181,11 +265,11 @@ pub fn verify_trail(chain_id: &str, genesis_head: &str, anchors: &[Anchor], rows
                 .iter()
                 .zip(&leaves)
                 .map(|(r, l)| LeafView {
-                    id: r.id.clone(),
-                    key: r.event.key.id.clone(),
-                    index: r.index,
+                    id: r.record_id().to_string(),
+                    key: r.key().to_string(),
+                    index: r.index(),
                     leaf: l.clone(),
-                    description: describe(&r.event),
+                    description: r.description(),
                 })
                 .collect(),
             tree,

@@ -1,0 +1,115 @@
+-- | Daml Script tests for Sthiranet.Audit (run with `dpm test`).
+module Sthiranet.Audit.Test where
+
+import Daml.Script
+import DA.Optional (isNone)
+import Sthiranet.Audit
+
+data World = World with
+  company : Party
+  auditor : Party
+  outsider : Party
+  chain : ContractId AuditChain
+
+genesis : Text
+genesis = "genesis-head"
+
+-- | Company proposes, auditor signs, company finalises.
+setup : Script World
+setup = do
+  company <- allocateParty "Company"
+  auditor <- allocateParty "Auditor"
+  outsider <- allocateParty "Outsider"
+  p <- submit company do
+    createCmd ChainProposal with
+      chainId = "DT"; submitter = company; members = [company, auditor]
+      signed = [company]; genesisHead = genesis
+  p <- submit auditor do exerciseCmd p Sign with signer = auditor
+  chain <- submit company do exerciseCmd p Finalize with actor = company
+  pure World with ..
+
+append : World -> ContractId AuditChain -> Int -> Text -> Text -> Script (ContractId AuditChain, ContractId AuditAnchor)
+append w c seq prev head = submit w.company do
+  exerciseCmd c Append with
+    seq; prevHead = prev; head; merkleRoot = "root-" <> head; eventCount = 3
+    fromPos = "1"; toPos = "3"
+    fromTime = "2026-11-18T00:00:00.000000Z"; toTime = "2026-11-18T00:00:10.000000Z"
+
+-- 1. The chain is signed by both members and appends chain correctly.
+test_append_chains : Script ()
+test_append_chains = script do
+  w <- setup
+  (c1, a1) <- append w w.chain 1 genesis "h1"
+  (c2, _) <- append w c1 2 "h1" "h2"
+  Some anchor <- queryContractId w.auditor a1
+  assert (anchor.seq == 1 && anchor.members == [w.company, w.auditor])
+  Some chain <- queryContractId w.company c2
+  assert (chain.lastSeq == 2 && chain.lastHead == "h2")
+
+-- 2. A fork (wrong prevHead) and a skipped sequence number are rejected.
+test_fork_and_gap_rejected : Script ()
+test_fork_and_gap_rejected = script do
+  w <- setup
+  (c1, _) <- append w w.chain 1 genesis "h1"
+  submitMustFail w.company do
+    exerciseCmd c1 Append with
+      seq = 2; prevHead = "not-h1"; head = "x"; merkleRoot = "r"; eventCount = 0
+      fromPos = "3"; toPos = "3"; fromTime = "2026-11-18T00:00:10.000000Z"; toTime = "2026-11-18T00:00:20.000000Z"
+  submitMustFail w.company do
+    exerciseCmd c1 Append with
+      seq = 3; prevHead = "h1"; head = "x"; merkleRoot = "r"; eventCount = 0
+      fromPos = "3"; toPos = "3"; fromTime = "2026-11-18T00:00:10.000000Z"; toTime = "2026-11-18T00:00:20.000000Z"
+
+-- 3. The consumed chain contract cannot be appended to again (no second successor).
+test_no_second_successor : Script ()
+test_no_second_successor = script do
+  w <- setup
+  _ <- append w w.chain 1 genesis "h1"
+  submitMustFail w.company do
+    exerciseCmd w.chain Append with
+      seq = 1; prevHead = genesis; head = "other"; merkleRoot = "r"; eventCount = 0
+      fromPos = "0"; toPos = "0"; fromTime = "2026-11-18T00:00:00.000000Z"; toTime = "2026-11-18T00:00:10.000000Z"
+
+-- 4. Only the submitter appends: the auditor cannot.
+test_only_submitter_appends : Script ()
+test_only_submitter_appends = script do
+  w <- setup
+  submitMustFail w.auditor do
+    exerciseCmd w.chain Append with
+      seq = 1; prevHead = genesis; head = "h1"; merkleRoot = "r"; eventCount = 0
+      fromPos = "0"; toPos = "0"; fromTime = "2026-11-18T00:00:00.000000Z"; toTime = "2026-11-18T00:00:10.000000Z"
+
+-- 5. Neither party can archive an anchor alone; together they could.
+test_no_unilateral_archive : Script ()
+test_no_unilateral_archive = script do
+  w <- setup
+  (_, a1) <- append w w.chain 1 genesis "h1"
+  submitMustFail w.company do archiveCmd a1
+  submitMustFail w.auditor do archiveCmd a1
+  submit (actAs w.company <> actAs w.auditor) do archiveCmd a1
+
+-- 6. A party outside the chain sees nothing.
+test_outsider_sees_nothing : Script ()
+test_outsider_sees_nothing = script do
+  w <- setup
+  (_, a1) <- append w w.chain 1 genesis "h1"
+  seen <- queryContractId w.outsider a1
+  assert (isNone seen)
+  anchors <- query @AuditAnchor w.outsider
+  assert (null anchors)
+
+-- 7. A chain cannot be finalised before every member signed, and a non-member cannot sign.
+test_proposal_rules : Script ()
+test_proposal_rules = script do
+  company <- allocateParty "Company"
+  auditor <- allocateParty "Auditor"
+  outsider <- allocateParty "Outsider"
+  p <- submit company do
+    createCmd ChainProposal with
+      chainId = "DT"; submitter = company; members = [company, auditor]
+      signed = [company]; genesisHead = genesis
+  submitMustFail company do exerciseCmd p Finalize with actor = company
+  submitMustFail outsider do exerciseCmd p Sign with signer = outsider
+  p <- submit auditor do exerciseCmd p Sign with signer = auditor
+  _ <- submit auditor do exerciseCmd p Finalize with actor = auditor
+  pure ()

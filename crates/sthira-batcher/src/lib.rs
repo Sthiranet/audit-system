@@ -3,10 +3,18 @@
 //! ledger. The records themselves stay in this node's off-ledger audit store (`store`).
 //!
 //! An empty batch is sealed and anchored too, so a quiet period is visible on the ledger.
+//!
+//! Two kinds of node share one sealing rule ([`plan_seal`]):
+//! - [`SubsidiaryNode`]: the finance demo's node, fed by the simulated ERP (spec v1 events).
+//! - [`feed_node::FeedNode`]: the prototype's node, fed by a live audit-log API (spec v2 events),
+//!   with its trail and the ledger stand-in persisted to disk by [`persist`].
+
+pub mod feed_node;
+pub mod persist;
 
 use serde::{Deserialize, Serialize};
 use sthira_core::{
-    BatchMeta, Event, MerkleTree, Op, genesis_head, head_hash, inclusion_proof, leaf_hash, merkle_tree, new_salt,
+    BatchMeta, Event, MerkleTree, Op, all_inclusion_proofs, genesis_head, head_hash, leaf_hash, merkle_tree, new_salt,
 };
 use sthira_ledger::{Anchor, AnchorInput, AuditLedger, LedgerError};
 use sthira_profiles::{DebeziumEvent, Description, FinanceSource, SourceConfig, describe, iso_micros, normalize};
@@ -70,6 +78,90 @@ pub struct Batch {
     pub contract_id: String,
     pub update_id: String,
     pub items: Vec<BatchItem>,
+}
+
+/// The end of a chain as the node last sealed it.
+#[derive(Debug, Clone, Copy)]
+pub struct ChainTip<'a> {
+    pub seq: u64,
+    pub head: &'a str,
+    pub to_time: &'a str,
+    pub to_pos: &'a str,
+}
+
+/// Everything computed when a batch is sealed, before anything is anchored or stored.
+#[derive(Debug, Clone)]
+pub struct SealPlan {
+    pub seq: u64,
+    pub prev_head: String,
+    pub head: String,
+    pub tree: MerkleTree,
+    pub meta: BatchMeta,
+    pub salts: Vec<String>,
+    pub leaves: Vec<String>,
+    pub from_time: String,
+    pub to_time: String,
+    pub from_pos: String,
+    pub to_pos: String,
+}
+
+impl SealPlan {
+    /// What the subsidiary submits to the ledger for this batch.
+    pub fn anchor_input(&self) -> AnchorInput {
+        AnchorInput {
+            seq: self.seq,
+            prev_head: self.prev_head.clone(),
+            head: self.head.clone(),
+            merkle_root: self.tree.hash.clone(),
+            event_count: self.leaves.len() as u64,
+            from_pos: self.from_pos.clone(),
+            to_pos: self.to_pos.clone(),
+            from_time: self.from_time.clone(),
+            to_time: self.to_time.clone(),
+        }
+    }
+
+    /// The RFC 6962 audit path of every leaf. Computed at seal time, while all leaves are in hand.
+    pub fn proofs(&self) -> Vec<Vec<String>> {
+        all_inclusion_proofs(&self.leaves)
+    }
+}
+
+/// The sealing rule shared by every profile: chain position, a fresh salt and leaf per event, the
+/// Merkle tree, the log positions and the chained head. Pure apart from the random salts.
+///
+/// - `last` is the previous batch (`None` for the first, which chains onto `genesis`).
+/// - `span` is the first and last log position of the events; an empty batch repeats the previous
+///   batch's `to_pos`, so it still states where in the log the chain stands.
+/// - Windows are contiguous: `from_time` is the previous `to_time` (or `chain_start`).
+pub fn plan_seal<E: Serialize>(
+    chain_id: &str,
+    genesis: &str,
+    chain_start: &str,
+    last: Option<ChainTip<'_>>,
+    events: &[&E],
+    span: Option<(String, String)>,
+    to_time: String,
+) -> SealPlan {
+    let seq = last.map_or(0, |b| b.seq) + 1;
+    let prev_head = last.map_or(genesis, |b| b.head).to_string();
+    let from_time = last.map_or(chain_start, |b| b.to_time).to_string();
+    let prev_pos = last.map(|b| b.to_pos.to_string()).unwrap_or_default();
+    let salts: Vec<String> = events.iter().map(|_| new_salt()).collect();
+    let leaves: Vec<String> = events.iter().zip(&salts).map(|(e, s)| leaf_hash(s, e)).collect();
+    let tree = merkle_tree(&leaves);
+    let (from_pos, to_pos) = span.unwrap_or_else(|| (prev_pos.clone(), prev_pos));
+    let meta = BatchMeta {
+        chain: chain_id.to_string(),
+        seq,
+        from_pos: from_pos.clone(),
+        to_pos: to_pos.clone(),
+        from_time: from_time.clone(),
+        to_time: to_time.clone(),
+        event_count: events.len() as u64,
+    };
+    let head = head_hash(&prev_head, &tree.hash, &meta);
+    SealPlan { seq, prev_head, head, tree, meta, salts, leaves, from_time, to_time, from_pos, to_pos }
 }
 
 pub struct SubsidiaryNode {
@@ -137,48 +229,16 @@ impl SubsidiaryNode {
     /// Seals every pending change into the next batch and anchors it. Fails without changing
     /// anything if any member's node refuses to co-sign.
     pub fn seal(&mut self, ledger: &mut dyn AuditLedger, now_ms: i64) -> Result<(&Batch, Anchor), LedgerError> {
-        let last = self.last_batch();
-        let seq = last.map_or(0, |b| b.seq) + 1;
-        let prev_head = last.map_or_else(|| self.genesis.clone(), |b| b.head.clone());
-        let from_time = last.map_or_else(|| self.chain_start.clone(), |b| b.to_time.clone());
-        let prev_pos = last.map(|b| b.to_pos.clone()).unwrap_or_default();
-        let to_time = iso_micros(now_ms);
+        let last =
+            self.last_batch().map(|b| ChainTip { seq: b.seq, head: &b.head, to_time: &b.to_time, to_pos: &b.to_pos });
+        let events: Vec<&Event> = self.pending.iter().map(|p| &p.event).collect();
+        let span = events.first().zip(events.last()).map(|(f, l)| (f.source.pos.clone(), l.source.pos.clone()));
+        let plan = plan_seal(&self.chain_id, &self.genesis, &self.chain_start, last, &events, span, iso_micros(now_ms));
+        let anchor = ledger.append(&self.chain_id, &self.id, plan.anchor_input())?;
+        // Proofs now, while all the leaves are in hand: each is made of the OTHER leaves' hashes.
+        let proofs = plan.proofs();
+        let SealPlan { seq, prev_head, head, tree, meta, salts, leaves, from_time, to_time, from_pos, to_pos } = plan;
 
-        let events = &self.pending;
-        let salts: Vec<String> = events.iter().map(|_| new_salt()).collect();
-        let leaves: Vec<String> = events.iter().zip(&salts).map(|(e, s)| leaf_hash(s, &e.event)).collect();
-        let tree = merkle_tree(&leaves);
-        let from_pos = events.first().map_or_else(|| prev_pos.clone(), |e| e.event.source.pos.clone());
-        let to_pos = events.last().map_or(prev_pos, |e| e.event.source.pos.clone());
-        let meta = BatchMeta {
-            chain: self.chain_id.clone(),
-            seq,
-            from_pos: from_pos.clone(),
-            to_pos: to_pos.clone(),
-            from_time: from_time.clone(),
-            to_time: to_time.clone(),
-            event_count: events.len() as u64,
-        };
-        let head = head_hash(&prev_head, &tree.hash, &meta);
-
-        let anchor = ledger.append(
-            &self.chain_id,
-            &self.id,
-            AnchorInput {
-                seq,
-                prev_head: prev_head.clone(),
-                head: head.clone(),
-                merkle_root: tree.hash.clone(),
-                event_count: events.len() as u64,
-                from_pos: from_pos.clone(),
-                to_pos: to_pos.clone(),
-                from_time: from_time.clone(),
-                to_time: to_time.clone(),
-            },
-        )?;
-
-        let proofs: Vec<Vec<String>> =
-            (0..leaves.len()).map(|i| inclusion_proof(&leaves, i).expect("index in range")).collect();
         let pending = std::mem::take(&mut self.pending);
         let mut items = Vec::with_capacity(pending.len());
         for (i, (((rec, salt), leaf), proof)) in pending.into_iter().zip(salts).zip(leaves).zip(proofs).enumerate() {

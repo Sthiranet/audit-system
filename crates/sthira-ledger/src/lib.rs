@@ -9,8 +9,10 @@
 //! - Archiving (rewriting) an anchor needs every signatory, so no single party can do it.
 //! - The synchronizer only orders encrypted envelopes: it sees recipients and sizes, never contents.
 //!
-//! A Canton-backed implementation (JSON Ledger API v2, the `Sthiranet.Audit` Daml templates) will
-//! implement the same trait.
+//! [`canton::CantonLedger`] implements the same trait on a real Canton participant (JSON Ledger API
+//! v2, the `Sthiranet.Audit` Daml templates in `prototype-sandbox/`).
+
+pub mod canton;
 
 use std::collections::{BTreeMap, HashMap};
 

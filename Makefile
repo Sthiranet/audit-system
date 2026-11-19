@@ -1,6 +1,6 @@
 # Sthiranet demo: Rust backend (demo-director) + React/TypeScript UI.
 SHELL := /bin/bash
-.PHONY: install build start dev test check api stop clean distclean
+.PHONY: install build start dev test check api stop clean distclean node sandbox daml-test
 
 install:            ## install UI dependencies
 	cd demo/ui && npm ci
@@ -26,6 +26,15 @@ check:              ## formatting and lints, as CI would run them
 	cargo fmt --all --check
 	cargo clippy --workspace --all-targets -- -D warnings
 	cd demo/ui && npm run typecheck
+
+node:               ## build the prototype CLI (target/release/sthira-node); see prototype_tutorial.md
+	cargo build --release -p sthira-verify --bin sthira-node
+
+sandbox:            ## start the Canton sandbox with the sthiranet-audit DAR (JSON Ledger API on :7575)
+	cd prototype-sandbox && ./sandbox.sh
+
+daml-test:          ## run the Daml Script tests of the sthiranet-audit package
+	cd prototype-sandbox && dpm test
 
 stop:               ## stop any running demo server (its demo state lives only in memory, so this clears it)
 	-pkill -x demo-director && echo "demo-director stopped" || echo "no demo-director running"

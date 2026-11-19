@@ -1,6 +1,6 @@
 [package]
 name = "sthira-verify"
-description = "Node layer: recompute leaves, Merkle roots and chained heads from an off-ledger trail and compare them with anchors on the verifier's own ledger copy"
+description = "Node layer + prototype CLI (sthira-node): recompute leaves, Merkle roots and chained heads from an off-ledger trail and compare them with anchors on the verifier's own ledger copy"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -14,3 +14,10 @@ sthira-profiles.workspace = true
 sthira-batcher.workspace = true
 serde.workspace = true
 utoipa.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+clap.workspace = true
+
+[[bin]]
+name = "sthira-node"
+path = "src/bin/sthira-node.rs"

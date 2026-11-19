@@ -1,0 +1,114 @@
+-- | Sthiranet · audit-trail anchoring.
+--
+-- A company's node seals its audit trail into batches and anchors one fingerprint per batch here.
+-- Only hashes, counts, log positions and time windows reach the ledger; records never do.
+--
+--   ChainProposal  ──Sign (each member)──►  ChainProposal  ──Finalize──►  AuditChain
+--   AuditChain     ──Append (submitter)──►  AuditChain (next) + AuditAnchor
+--
+-- * Every member (company, auditor, …) signs the chain once. After that the submitter appends
+--   alone: the members' authority flows into each anchor through the chain contract.
+-- * Append checks continuity: seq must be last + 1 and prevHead must equal the chain head, so the
+--   chain can neither fork nor skip. Append is consuming, so only one successor can ever exist.
+-- * Every AuditAnchor is signed by every member, so no single party can archive (rewrite) it.
+--
+-- Times, hashes and positions are Text: they are exactly the strings the node hashed (RFC 3339 UTC
+-- with microseconds, lowercase hex, decimal positions), so a verifier recomputes from them as is.
+-- Fixed-format UTC timestamps order correctly as text.
+module Sthiranet.Audit where
+
+import DA.List (sort, unique)
+
+-- | Proposal to start a chain. Signed incrementally by every member.
+template ChainProposal
+  with
+    chainId     : Text
+    submitter   : Party   -- ^ the only party that may append (the company's node)
+    members     : [Party] -- ^ every co-signer, the submitter included
+    signed      : [Party] -- ^ members that have signed so far
+    genesisHead : Text    -- ^ H(0x03 ‖ "sthiranet/v1/genesis/" ‖ chainId), computed off-ledger
+  where
+    signatory signed
+    observer members
+    ensure submitter `elem` members
+      && unique members
+      && not (null signed)
+      && all (`elem` members) signed
+      && unique signed
+
+    -- | A member adds its signature.
+    choice Sign : ContractId ChainProposal
+      with
+        signer : Party
+      controller signer
+      do
+        assertMsg "signer is not a member of this chain" (signer `elem` members)
+        assertMsg "signer has already signed" (signer `notElem` signed)
+        create this with signed = signer :: signed
+
+    -- | Once everyone has signed, any member turns the proposal into the chain.
+    choice Finalize : ContractId AuditChain
+      with
+        actor : Party
+      controller actor
+      do
+        assertMsg "actor is not a member of this chain" (actor `elem` members)
+        assertMsg "not every member has signed yet" (sort signed == sort members)
+        create AuditChain with
+          chainId; submitter; members; genesisHead
+          lastSeq = 0
+          lastHead = genesisHead
+
+-- | The head of one audit chain. Recreated on every Append.
+template AuditChain
+  with
+    chainId     : Text
+    submitter   : Party
+    members     : [Party]
+    genesisHead : Text
+    lastSeq     : Int
+    lastHead    : Text
+  where
+    signatory members
+    ensure submitter `elem` members && unique members && lastSeq >= 0
+
+    choice Append : (ContractId AuditChain, ContractId AuditAnchor)
+      with
+        seq        : Int
+        prevHead   : Text
+        head       : Text
+        merkleRoot : Text
+        eventCount : Int
+        fromPos    : Text
+        toPos      : Text
+        fromTime   : Text
+        toTime     : Text
+      controller submitter
+      do
+        assertMsg "sequence gap: seq must be lastSeq + 1" (seq == lastSeq + 1)
+        assertMsg "chain fork: prevHead does not match the chain head" (prevHead == lastHead)
+        assertMsg "time window runs backwards" (fromTime <= toTime)
+        assertMsg "event count is negative" (eventCount >= 0)
+        anchor <- create AuditAnchor with
+          chainId; submitter; members; seq; prevHead; head; merkleRoot
+          eventCount; fromPos; toPos; fromTime; toTime
+        next <- create this with lastSeq = seq; lastHead = head
+        pure (next, anchor)
+
+-- | One sealed batch. Signed by every member: archiving it needs all of them.
+template AuditAnchor
+  with
+    chainId    : Text
+    submitter  : Party
+    members    : [Party]
+    seq        : Int
+    prevHead   : Text
+    head       : Text
+    merkleRoot : Text
+    eventCount : Int
+    fromPos    : Text
+    toPos      : Text
+    fromTime   : Text
+    toTime     : Text
+  where
+    signatory members
