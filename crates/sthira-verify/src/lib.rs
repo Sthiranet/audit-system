@@ -1,4 +1,4 @@
-//! Node layer · sthira-verify. Any member (HQ, the auditor) takes an off-ledger audit trail,
+//! Node layer · sthira-verify. Any member (for example the auditor) takes an off-ledger audit trail,
 //! recomputes every leaf, Merkle root and head, and compares them with the anchors stored on
 //! ITS OWN ledger copy. It needs nothing from the party that produced the trail except the trail.
 
@@ -9,12 +9,11 @@ pub mod positions;
 pub use positions::{PosGap, PosHole, PositionReport, position_report};
 
 use serde::{Deserialize, Serialize};
-use sthira_batcher::StoreRow;
 use sthira_batcher::feed_node::FeedRow;
 use sthira_core::{BatchMeta, MerkleTree, head_hash, leaf_hash, merkle_tree, verify_inclusion};
 use sthira_ledger::Anchor;
+use sthira_profiles::Description;
 use sthira_profiles::audit_api::describe_audit;
-use sthira_profiles::{Description, describe};
 
 /// One record of an off-ledger trail, whatever profile produced it. The verifier needs only these
 /// facts, and recomputes the leaf itself; it never trusts `stored_leaf`.
@@ -28,33 +27,6 @@ pub trait TrailRecord {
     /// `H(0x00 || salt || JCS(event))` from the stored salt and event.
     fn recompute_leaf(&self) -> String;
     fn description(&self) -> Description;
-}
-
-impl TrailRecord for StoreRow {
-    fn record_id(&self) -> &str {
-        &self.id
-    }
-    fn key(&self) -> &str {
-        &self.event.key.id
-    }
-    fn batch_seq(&self) -> u64 {
-        self.batch_seq
-    }
-    fn index(&self) -> usize {
-        self.index
-    }
-    fn stored_leaf(&self) -> &str {
-        &self.leaf_hash
-    }
-    fn proof(&self) -> &[String] {
-        &self.proof
-    }
-    fn recompute_leaf(&self) -> String {
-        leaf_hash(&self.salt, &self.event)
-    }
-    fn description(&self) -> Description {
-        describe(&self.event)
-    }
 }
 
 impl TrailRecord for FeedRow {
@@ -174,12 +146,6 @@ pub struct VerifyReport {
     /// Records deleted across the whole trail.
     pub deleted_count: usize,
     pub event_count: usize,
-}
-
-/// Recomputes the finance trail `rows` of chain `chain_id` and compares it with `anchors`, which must
-/// come from the verifier's own ledger copy.
-pub fn verify_trail(chain_id: &str, genesis_head: &str, anchors: &[Anchor], rows: &[StoreRow]) -> VerifyReport {
-    verify_records(chain_id, genesis_head, anchors, rows)
 }
 
 /// Recomputes any trail and compares it with `anchors` from the verifier's own ledger copy.

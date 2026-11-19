@@ -1,7 +1,7 @@
 //! Presenter actions on a STORED v2 event: what an insider with write access to the node's audit
 //! store might do after the batch was anchored. Detecting it is the verifier's job, not this module's.
 //!
-//! Like the finance profile, repeated edits walk away from the original and never restore it.
+//! Repeated edits walk away from the original and never restore it.
 
 use serde_json::{Map, Value};
 use sthira_core::EventV2;

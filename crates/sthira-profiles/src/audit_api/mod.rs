@@ -2,7 +2,7 @@
 //! `/audit/` endpoint).
 //!
 //! The application writes one audit row per insert, update and delete into its own change log and
-//! publishes it over HTTP. This module replaces Debezium for such sources:
+//! publishes it over HTTP. This module reads such sources:
 //!
 //! 1. [`types`]: the API's JSON exactly as served ([`AuditLogEntry`], [`AuditPage`]).
 //! 2. [`feed`]: reading the newest-first, page-numbered endpoint into an ordered stream

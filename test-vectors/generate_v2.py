@@ -3,8 +3,8 @@ hashing-v2.json. The Rust crate sthira-core must reproduce every value (see its 
 
 Run: python3 -I test-vectors/generate_v2.py > test-vectors/hashing-v2.json
 
-Spec v2 changes only the event shape (API-sourced change logs). Leaf, node, head and genesis
-hashing are those of v1. Every v2 field is always present; absent values are JSON null.
+Spec v2 is the event shape for API-sourced change logs. Every field is always present; absent
+values are JSON null.
 
 JCS here is json.dumps with sorted keys and no whitespace. That equals RFC 8785 for these inputs:
 strings, integers, null, booleans, and the floats used below (17.68, 0.5, 1250.0 is avoided on

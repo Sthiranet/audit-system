@@ -1,9 +1,7 @@
-//! Kernel · hashing spec v1 and v2 (see the build plan and the README).
+//! Kernel · hashing spec v2 (see the README).
 //!
 //! ```text
-//! event   = JCS({ v, chain, source{connector, db, schema, table, pos, tx}, key, op,      (v1)
-//!                 before, after, actor{name, kind}, committed_at, captured_at })
-//!         | JCS({ v, chain, source{connector, system, table, pos, channel, origin},      (v2)
+//! event   = JCS({ v: 2, chain, source{connector, system, table, pos, channel, origin},
 //!                 key, op, before, after, actor{id, name, org, kind}, committed_at, captured_at })
 //! salt    = 32 random bytes per event, kept in the audit store, never on the ledger
 //! leaf    = H(0x00 || salt || event)
@@ -16,16 +14,14 @@
 //! ```
 //!
 //! `H` is SHA-256 and JCS is RFC 8785 canonical JSON. Every hash is carried as lowercase hex.
-//! v2 changes only the event shape (for API-sourced change logs); salt, leaf, tree, head and genesis
-//! are identical in both versions.
+//! The genesis tag string is a fixed domain separator of the hash construction; it is not the event
+//! spec version.
 //! This crate is pure: no I/O and no async, so it can also be compiled to WebAssembly.
 
-mod event;
 mod event_v2;
 mod merkle;
 
-pub use event::{Actor, Event, EventSource, Op, RecordKey};
-pub use event_v2::{ActorV2, EventV2, SPEC_VERSION_V2, SourceV2};
+pub use event_v2::{ActorV2, EventV2, Op, RecordKey, SPEC_VERSION_V2, SourceV2};
 pub use merkle::{
     EMPTY_ROOT, MerkleTree, all_inclusion_proofs, inclusion_proof, merkle_root, merkle_tree, verify_inclusion,
 };
@@ -33,8 +29,6 @@ pub use merkle::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-/// Version of the hashing spec implemented here.
-pub const SPEC_VERSION: u32 = 1;
 /// Salt length in bytes.
 pub const SALT_LEN: usize = 32;
 
@@ -65,8 +59,8 @@ fn hex_bytes(s: &str) -> Vec<u8> {
 ///
 /// # Panics
 /// Only if `v` cannot be represented as JSON (for example a map with non-string keys or a
-/// non-finite float). Spec v1 events never contain floats: money and decimals are strings. Spec v2
-/// row images may hold floats as the source sent them; JCS writes them in ECMAScript form.
+/// non-finite float). Row images may hold floats as the source sent them; JCS writes them in
+/// ECMAScript form.
 pub fn canonical<T: Serialize>(v: &T) -> String {
     serde_json_canonicalizer::to_string(v).expect("value is representable as canonical JSON")
 }

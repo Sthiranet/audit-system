@@ -1,6 +1,6 @@
 [package]
 name = "sthira-batcher"
-description = "Node layer: capture, batch sealing and anchoring, and the off-ledger audit store (finance demo node and the API-fed prototype node, with on-disk persistence)"
+description = "Node layer: capture, batch sealing and anchoring, and the off-ledger audit store (the API-fed node, spec v2, with on-disk persistence)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

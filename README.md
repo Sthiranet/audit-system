@@ -106,7 +106,7 @@ Each row is mapped to a **spec v2 event**, which is the exact structure that get
 | API host | `source.system` | which system the trail belongs to |
 
 Every field is always present (`null` when it is empty), so each change has exactly one canonical form.
-The hashing is spec v1's: RFC 8785 canonical JSON, 32-byte salts and RFC 6962 Merkle trees. An
+The hashing uses RFC 8785 canonical JSON, 32-byte salts and RFC 6962 Merkle trees. An
 independent Python implementation (`test-vectors/generate_v2.py`) produces reference values that the
 Rust code must match.
 
@@ -510,10 +510,10 @@ STHIRA_CANTON_URL=http://localhost:7575 cargo test -p sthira-ledger --test canto
 
 | Path | What it holds |
 |---|---|
-| `crates/sthira-core` | the hashing kernel: events v1 and v2, canonical JSON, Merkle trees and proofs |
+| `crates/sthira-core` | the hashing kernel: spec v2 events, canonical JSON, Merkle trees and proofs |
 | `crates/sthira-ledger` | the `AuditLedger` trait, `SimLedger`, and `CantonLedger` (JSON Ledger API v2) |
 | `crates/sthira-profiles` | source connectors; `audit_api/` holds the Dreamtalk profile (cursor, normalise, describe, tamper) |
 | `crates/sthira-batcher` | the node: capture, sealing, anchoring, and on-disk persistence |
 | `crates/sthira-verify` | the verifier, completeness checks, and the `sthira-node` binary |
 | `prototype-sandbox/` | the Daml package and the sandbox script |
-| `test-vectors/` | independent Python reference implementations and their vectors (v1 and v2) |
+| `test-vectors/` | the independent Python reference implementation of spec v2 (`generate_v2.py`) and its vectors |

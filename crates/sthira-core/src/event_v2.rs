@@ -1,14 +1,27 @@
-//! Spec v2: the normalised change event for sources that publish their own change log over an API
-//! (the first one is an application's audit-log endpoint), rather than a database redo/WAL stream.
+//! Spec v2: the normalised change event, the exact structure that is canonicalised and hashed into a
+//! leaf. It is shaped for sources that publish their own change log over an API (the first one is an
+//! application's audit-log endpoint).
 //!
-//! The hashing rules are the same as v1 (leaf, node, head, genesis); only the event shape differs.
 //! Every field is always present: an absent value is an explicit JSON `null`, never a missing key,
 //! so one change has exactly one canonical form.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{Op, RecordKey};
+/// The kind of change.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum Op {
+    Insert,
+    Update,
+    Delete,
+}
+
+/// The changed record's primary key in the source.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct RecordKey {
+    pub id: String,
+}
 
 /// Spec version written into every v2 event.
 pub const SPEC_VERSION_V2: u32 = 2;

@@ -2,7 +2,7 @@
 //!
 //! Rows read by the connector's [`AuditCursor`](sthira_profiles::audit_api::AuditCursor) are
 //! normalised into spec v2 events and wait in `pending`. [`FeedNode::seal`] closes a batch with the
-//! same rule as the finance node ([`crate::plan_seal`]), anchors it, and moves the rows into the
+//! shared sealing rule ([`crate::plan_seal`]), anchors it, and moves the rows into the
 //! node's off-ledger audit store with their salt, leaf hash and inclusion proof.
 
 use std::collections::HashSet;
@@ -220,6 +220,7 @@ mod tests {
         assert_eq!((s1.batch.seq, s1.batch.event_count, s1.rows.len()), (1, 5, 5));
         assert_eq!((s1.batch.from_pos.as_str(), s1.batch.to_pos.as_str()), ("1", "5"));
         assert_eq!(s1.rows[2].id, "DT-3");
+        assert_eq!(s1.batch.prev_head, node.genesis, "the first batch chains onto genesis");
 
         let s2 = node.seal(&mut ledger, "2026-11-18T00:00:20.000000Z".into()).unwrap();
         assert_eq!(s2.batch.event_count, 0);

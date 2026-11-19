@@ -1,6 +1,6 @@
 [package]
 name = "sthira-profiles"
-description = "Connector layer: the finance record profile (simulated ERP + Debezium events) and the audit-API profile (live application change log, spec v2), normalisation, business meaning"
+description = "Connector layer: the audit-API profile (live application change log into spec v2 events), normalisation, business meaning"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -11,7 +11,6 @@ publish.workspace = true
 sthira-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-rand.workspace = true
 chrono.workspace = true
 utoipa.workspace = true
 thiserror.workspace = true
